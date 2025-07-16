@@ -1,6 +1,6 @@
 import React from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import Home from "./pages/Home"; // ou o componente principal que você usa
+import Home from "./pages/home"; // ou o componente principal que você usa
 
 const App = () => {
   return (
