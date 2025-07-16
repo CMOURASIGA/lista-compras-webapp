@@ -1,10 +1,10 @@
 import React from "react";
 import { GoogleLogin } from "@react-oauth/google";
-import jwt_decode from "jwt-decode";
+import { jwtDecode } from 'jwt-decode';
 
 const GoogleLoginButton = () => {
   const handleLogin = (credentialResponse) => {
-    const decoded = jwt_decode(credentialResponse.credential);
+    const decoded = jwt_Decode(credentialResponse.credential);
     console.log("Usuário autenticado:", decoded);
 
     localStorage.setItem("user", JSON.stringify(decoded));
