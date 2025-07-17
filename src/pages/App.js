@@ -4,7 +4,7 @@ import Home from "./home"; // ou o componente principal que você usa
 
 const App = () => {
   return (
-    <GoogleOAuthProvider clientId="61677669740-vf6epk35jup6ibr0lk1gt6o9kpg5n7k.apps.googleusercontent.com">
+    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <Home />
     </GoogleOAuthProvider>
   );

@@ -4,7 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 
 const GoogleLoginButton = () => {
   const handleLogin = (credentialResponse) => {
-    const decoded = jwt_Decode(credentialResponse.credential);
+    const decoded = jwtDecode(credentialResponse.credential);
     console.log("Usuário autenticado:", decoded);
 
     localStorage.setItem("user", JSON.stringify(decoded));
