@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
 import PriceInput from '../components/PriceInput';
-import { formatCurrency, isValidNumber } from '../utils/formatters';
 
-const AdicionarItem = ({ onBack }) => {
-  const { addItem, loading } = useUserData();
+const AdicionarItem = () => {
+  const { addItem } = useUserData();
   const [formData, setFormData] = useState({
     nome: '',
-    quantidade: 1,
+    quantidade: '1',
     categoria: '',
-    preco: 0
+    preco: ''
   });
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   const categorias = [
     'Grãos e Cereais',
@@ -28,203 +27,200 @@ const AdicionarItem = ({ onBack }) => {
     'Outros'
   ];
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handlePriceChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      preco: value
+    }));
+  };
+
   const validateForm = () => {
-    const newErrors = {};
-
     if (!formData.nome.trim()) {
-      newErrors.nome = 'Nome é obrigatório';
+      setMessage({ type: 'error', text: 'Nome do item é obrigatório' });
+      return false;
     }
-
-    if (!formData.quantidade || formData.quantidade < 1) {
-      newErrors.quantidade = 'Quantidade deve ser maior que 0';
-    }
-
     if (!formData.categoria) {
-      newErrors.categoria = 'Categoria é obrigatória';
+      setMessage({ type: 'error', text: 'Categoria é obrigatória' });
+      return false;
     }
-
-    if (!isValidNumber(formData.preco) || formData.preco <= 0) {
-      newErrors.preco = 'Preço deve ser maior que 0';
+    if (!formData.quantidade || parseInt(formData.quantidade) < 1) {
+      setMessage({ type: 'error', text: 'Quantidade deve ser maior que zero' });
+      return false;
     }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    setMessage({ type: '', text: '' });
 
     try {
-      const success = await addItem({
-        nome: formData.nome.trim(),
-        quantidade: parseInt(formData.quantidade),
-        categoria: formData.categoria,
-        preco: formData.preco.toString().replace('.', ',') // Converter para formato brasileiro
-      });
-
+      const success = await addItem(formData);
+      
       if (success) {
-        setShowSuccess(true);
+        setMessage({ type: 'success', text: 'Item adicionado com sucesso!' });
         setFormData({
           nome: '',
-          quantidade: 1,
+          quantidade: '1',
           categoria: '',
-          preco: 0
+          preco: ''
         });
-        setErrors({});
-
-        // Esconder mensagem de sucesso após 3 segundos
-        setTimeout(() => {
-          setShowSuccess(false);
-        }, 3000);
+      } else {
+        setMessage({ type: 'error', text: 'Erro ao adicionar item. Tente novamente.' });
       }
     } catch (error) {
       console.error('Erro ao adicionar item:', error);
+      setMessage({ type: 'error', text: 'Erro inesperado. Tente novamente.' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-
-    // Limpar erro do campo quando usuário começar a digitar
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: null
-      }));
-    }
+  const calculateTotal = () => {
+    const precoStr = formData.preco?.toString() || '';
+    const preco = parseFloat(precoStr.replace(',', '.')) || 0;
+    const quantidade = parseInt(formData.quantidade) || 0;
+    return preco * quantidade;
   };
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white">
-      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
-        Adicionar Novo Item
-      </h2>
+    <div className="p-4 max-w-2xl mx-auto">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-2xl font-semibold mb-6 text-gray-800 text-center">
+          Adicionar Novo Item
+        </h2>
 
-      {showSuccess && (
-        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-md flex items-center">
-          <span className="mr-2">✅</span>
-          Item adicionado com sucesso!
-        </div>
-      )}
+        {message.text && (
+          <div className={`mb-4 p-3 rounded-lg ${
+            message.type === 'success' 
+              ? 'bg-green-100 text-green-700 border border-green-200' 
+              : 'bg-red-100 text-red-700 border border-red-200'
+          }`}>
+            {message.text}
+          </div>
+        )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Nome do Item */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Nome do Item *
-          </label>
-          <input
-            type="text"
-            value={formData.nome}
-            onChange={(e) => handleInputChange('nome', e.target.value)}
-            placeholder="Ex: Arroz integral"
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.nome ? 'border-red-500' : 'border-gray-300'
-            }`}
-            disabled={loading}
-          />
-          {errors.nome && (
-            <p className="mt-1 text-xs text-red-500">{errors.nome}</p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Nome do Item */}
+          <div>
+            <label htmlFor="nome" className="block text-sm font-medium text-gray-700 mb-1">
+              Nome do Item *
+            </label>
+            <input
+              type="text"
+              id="nome"
+              name="nome"
+              value={formData.nome}
+              onChange={handleInputChange}
+              placeholder="Ex: Arroz integral"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+          </div>
+
+          {/* Quantidade */}
+          <div>
+            <label htmlFor="quantidade" className="block text-sm font-medium text-gray-700 mb-1">
+              Quantidade *
+            </label>
+            <input
+              type="number"
+              id="quantidade"
+              name="quantidade"
+              value={formData.quantidade}
+              onChange={handleInputChange}
+              min="1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+          </div>
+
+          {/* Categoria */}
+          <div>
+            <label htmlFor="categoria" className="block text-sm font-medium text-gray-700 mb-1">
+              Categoria *
+            </label>
+            <select
+              id="categoria"
+              name="categoria"
+              value={formData.categoria}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <option value="">Selecione uma categoria</option>
+              {categorias.map((categoria) => (
+                <option key={categoria} value={categoria}>
+                  {categoria}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Preço */}
+          <div>
+            <label htmlFor="preco" className="block text-sm font-medium text-gray-700 mb-1">
+              Preço Estimado (R$)
+            </label>
+            <PriceInput
+              value={formData.preco}
+              onChange={handlePriceChange}
+              placeholder="0,00"
+            />
+          </div>
+
+          {/* Total Estimado */}
+          {formData.preco && formData.quantidade && (
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <div className="text-sm text-blue-700">
+                Total estimado: <strong>R$ {calculateTotal().toFixed(2).replace('.', ',')}</strong>
+              </div>
+            </div>
           )}
-        </div>
 
-        {/* Quantidade */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Quantidade *
-          </label>
-          <input
-            type="number"
-            min="1"
-            value={formData.quantidade}
-            onChange={(e) => handleInputChange('quantidade', parseInt(e.target.value) || 1)}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.quantidade ? 'border-red-500' : 'border-gray-300'
-            }`}
-            disabled={loading}
-          />
-          {errors.quantidade && (
-            <p className="mt-1 text-xs text-red-500">{errors.quantidade}</p>
-          )}
-        </div>
-
-        {/* Categoria */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Categoria *
-          </label>
-          <select
-            value={formData.categoria}
-            onChange={(e) => handleInputChange('categoria', e.target.value)}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.categoria ? 'border-red-500' : 'border-gray-300'
-            }`}
-            disabled={loading}
+          {/* Botão Submit */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+              isSubmitting
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500'
+            } text-white`}
           >
-            <option value="">Selecione uma categoria</option>
-            {categorias.map((categoria) => (
-              <option key={categoria} value={categoria}>
-                {categoria}
-              </option>
-            ))}
-          </select>
-          {errors.categoria && (
-            <p className="mt-1 text-xs text-red-500">{errors.categoria}</p>
-          )}
+            {isSubmitting ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Adicionando...
+              </div>
+            ) : (
+              'Adicionar Item'
+            )}
+          </button>
+        </form>
+
+        {/* Dicas */}
+        <div className="mt-6 p-4 bg-yellow-50 rounded-lg">
+          <h3 className="text-sm font-medium text-yellow-800 mb-2">💡 Dicas:</h3>
+          <ul className="text-sm text-yellow-700 space-y-1">
+            <li>• Use nomes específicos para facilitar a identificação</li>
+            <li>• Defina a quantidade correta para evitar desperdício</li>
+            <li>• O preço estimado ajuda no controle do orçamento</li>
+            <li>• Use vírgula para separar os centavos (ex: 1,50)</li>
+          </ul>
         </div>
-
-        {/* Preço */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Preço Estimado (R$)
-          </label>
-          <PriceInput
-            value={formData.preco}
-            onChange={(value) => handleInputChange('preco', value)}
-            placeholder="0,00"
-            className={errors.preco ? 'border-red-500' : ''}
-            disabled={loading}
-          />
-          {errors.preco && (
-            <p className="mt-1 text-xs text-red-500">{errors.preco}</p>
-          )}
-          {formData.preco > 0 && (
-            <p className="mt-1 text-xs text-gray-500">
-              Total estimado: {formatCurrency(formData.preco * formData.quantidade)}
-            </p>
-          )}
-        </div>
-
-        {/* Botão Submit */}
-        <button
-          type="submit"
-          disabled={loading}
-          className={`w-full py-3 px-4 rounded-md text-white font-medium transition-colors ${
-            loading
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
-          }`}
-        >
-          {loading ? 'Adicionando...' : 'Adicionar Item'}
-        </button>
-      </form>
-
-      {/* Dicas */}
-      <div className="mt-6 p-4 bg-yellow-50 rounded-md">
-        <h3 className="text-sm font-medium text-yellow-800 mb-2">💡 Dicas:</h3>
-        <ul className="text-xs text-yellow-700 space-y-1">
-          <li>• Use nomes específicos para facilitar a identificação</li>
-          <li>• Defina a quantidade correta para evitar desperdício</li>
-          <li>• O preço estimado ajuda no controle do orçamento</li>
-          <li>• Use vírgula para separar os centavos (ex: 1,50)</li>
-        </ul>
       </div>
     </div>
   );
