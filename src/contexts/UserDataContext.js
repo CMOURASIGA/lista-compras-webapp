@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import googleSheetsService from '../services/googleSheetsService';
+import { formatCurrency, parseInputValue } from '../utils/formatters';
 
 const UserDataContext = createContext();
 
@@ -13,273 +14,305 @@ export const useUserData = () => {
 
 export const UserDataProvider = ({ children }) => {
   const [userData, setUserData] = useState({
-    email: null,
-    name: null,
-    picture: null,
-    spreadsheetId: null,
+    items: [],
+    historico: [],
     isLoading: false,
-    isInitialized: false
+    hasGoogleSheets: false,
+    spreadsheetId: null
   });
 
-  const [items, setItems] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
 
-  // Inicializar dados do usuário após login
-  const initializeUserData = async (userInfo) => {
-    setLoading(true);
-    try {
-      const { email, name, picture } = userInfo;
-      
-      setUserData(prev => ({
-        ...prev,
-        email,
-        name,
-        picture,
-        isLoading: true
-      }));
-
-      // Inicializar Google Sheets API
-      await googleSheetsService.initialize();
-
-      // Verificar se usuário já tem planilha
-      let spreadsheetId = googleSheetsService.getUserSpreadsheetId(email);
-      
-      if (!spreadsheetId) {
-        // Criar nova planilha para usuário novo
-        console.log('Criando nova planilha para usuário:', email);
-        spreadsheetId = await googleSheetsService.createUserSpreadsheet(email);
+  // Carregar dados do localStorage na inicialização
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const userInfo = JSON.parse(savedUser);
+        setUser(userInfo);
+        loadUserData(userInfo.email);
+      } catch (error) {
+        console.error('Erro ao carregar usuário:', error);
       }
-
-      setUserData(prev => ({
-        ...prev,
-        spreadsheetId,
-        isLoading: false,
-        isInitialized: true
-      }));
-
-      // Carregar dados existentes
-      await loadUserData(spreadsheetId);
-
-    } catch (error) {
-      console.error('Erro ao inicializar dados do usuário:', error);
-      setUserData(prev => ({
-        ...prev,
-        isLoading: false,
-        isInitialized: false
-      }));
-    } finally {
-      setLoading(false);
     }
-  };
+  }, []);
 
-  // Carregar dados da planilha
-  const loadUserData = async (spreadsheetId) => {
-    if (!spreadsheetId) return;
+  // Carregar dados do usuário (localStorage + Google Sheets)
+  const loadUserData = async (userEmail) => {
+    setUserData(prev => ({ ...prev, isLoading: true }));
 
     try {
-      setLoading(true);
-      
-      // Carregar itens e histórico em paralelo
-      const [itemsData, historyData] = await Promise.all([
-        googleSheetsService.getItems(spreadsheetId),
-        googleSheetsService.getHistory(spreadsheetId)
-      ]);
+      // Carregar dados do localStorage primeiro (fallback)
+      const localItems = JSON.parse(localStorage.getItem(`items_${userEmail}`) || '[]');
+      const localHistorico = JSON.parse(localStorage.getItem(`historico_${userEmail}`) || '[]');
 
-      setItems(itemsData);
-      setHistory(historyData);
+      setUserData(prev => ({
+        ...prev,
+        items: localItems,
+        historico: localHistorico,
+        isLoading: false
+      }));
+
+      // Tentar carregar do Google Sheets (se disponível)
+      await loadFromGoogleSheets(userEmail);
+
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-    } finally {
-      setLoading(false);
+      setUserData(prev => ({ ...prev, isLoading: false }));
     }
   };
 
-  // Adicionar novo item
-  const addItem = async (itemData) => {
-    if (!userData.spreadsheetId) return false;
+  // Carregar dados do Google Sheets
+  const loadFromGoogleSheets = async (userEmail) => {
+    try {
+      // Verificar se temos API Key
+      if (!process.env.REACT_APP_GOOGLE_API_KEY) {
+        console.log('Google API Key não configurada, usando apenas localStorage');
+        return;
+      }
+
+      await googleSheetsService.initialize();
+      
+      let spreadsheetId = googleSheetsService.getUserSpreadsheetId(userEmail);
+      
+      if (!spreadsheetId) {
+        console.log('Criando nova planilha para o usuário...');
+        spreadsheetId = await googleSheetsService.createUserSpreadsheet(userEmail);
+      }
+
+      if (spreadsheetId) {
+        const items = await googleSheetsService.getItems(spreadsheetId);
+        const historico = await googleSheetsService.getHistory(spreadsheetId);
+
+        setUserData(prev => ({
+          ...prev,
+          items,
+          historico,
+          hasGoogleSheets: true,
+          spreadsheetId
+        }));
+
+        // Sincronizar com localStorage
+        localStorage.setItem(`items_${userEmail}`, JSON.stringify(items));
+        localStorage.setItem(`historico_${userEmail}`, JSON.stringify(historico));
+      }
+
+    } catch (error) {
+      console.error('Erro ao carregar do Google Sheets:', error);
+      // Continuar usando localStorage como fallback
+    }
+  };
+
+  // Salvar dados (localStorage + Google Sheets)
+  const saveData = async (type, data) => {
+    if (!user) return;
 
     try {
-      setLoading(true);
-      
+      // Salvar no localStorage primeiro (sempre funciona)
+      localStorage.setItem(`${type}_${user.email}`, JSON.stringify(data));
+
+      // Atualizar estado local
+      setUserData(prev => ({ ...prev, [type]: data }));
+
+      // Tentar salvar no Google Sheets (se disponível)
+      if (userData.hasGoogleSheets && userData.spreadsheetId) {
+        // Implementar sincronização com Google Sheets aqui
+        console.log('Sincronizando com Google Sheets...');
+      }
+
+    } catch (error) {
+      console.error('Erro ao salvar dados:', error);
+    }
+  };
+
+  // Adicionar item
+  const addItem = async (itemData) => {
+    if (!user) return false;
+
+    try {
       const newItem = {
         id: Date.now().toString(),
         nome: itemData.nome,
-        quantidade: parseInt(itemData.quantidade),
+        quantidade: parseInt(itemData.quantidade) || 1,
         categoria: itemData.categoria,
-        preco: itemData.preco.replace(',', '.'), // Converter vírgula para ponto
-        status: 'pendente'
-      };
-
-      // Adicionar à planilha
-      await googleSheetsService.addItem(userData.spreadsheetId, newItem);
-      
-      // Atualizar estado local
-      setItems(prev => [...prev, {
-        ...newItem,
-        preco: parseFloat(newItem.preco),
+        preco: parseFloat(itemData.preco?.toString().replace(',', '.')) || 0,
+        status: 'pendente',
         dataCriacao: new Date().toLocaleDateString('pt-BR'),
         dataCompra: ''
-      }]);
+      };
+
+      const updatedItems = [...userData.items, newItem];
+      await saveData('items', updatedItems);
+
+      // Tentar adicionar no Google Sheets
+      if (userData.hasGoogleSheets && userData.spreadsheetId) {
+        try {
+          await googleSheetsService.addItem(userData.spreadsheetId, newItem);
+        } catch (error) {
+          console.error('Erro ao adicionar no Google Sheets:', error);
+        }
+      }
 
       return true;
     } catch (error) {
       console.error('Erro ao adicionar item:', error);
       return false;
-    } finally {
-      setLoading(false);
     }
   };
 
   // Marcar item como comprado
   const markItemAsBought = async (itemId) => {
-    if (!userData.spreadsheetId) return false;
+    if (!user) return false;
 
     try {
-      setLoading(true);
-      
-      const success = await googleSheetsService.markItemAsBought(userData.spreadsheetId, itemId);
-      
-      if (success) {
-        // Atualizar estado local
-        setItems(prev => prev.map(item => 
-          item.id === itemId 
-            ? { ...item, status: 'comprado', dataCompra: new Date().toLocaleDateString('pt-BR') }
-            : item
-        ));
+      const updatedItems = userData.items.map(item => 
+        item.id === itemId 
+          ? { ...item, status: 'comprado', dataCompra: new Date().toLocaleDateString('pt-BR') }
+          : item
+      );
 
-        // Recarregar histórico
-        const historyData = await googleSheetsService.getHistory(userData.spreadsheetId);
-        setHistory(historyData);
+      await saveData('items', updatedItems);
+
+      // Tentar atualizar no Google Sheets
+      if (userData.hasGoogleSheets && userData.spreadsheetId) {
+        try {
+          await googleSheetsService.markItemAsBought(userData.spreadsheetId, itemId);
+        } catch (error) {
+          console.error('Erro ao atualizar no Google Sheets:', error);
+        }
       }
 
-      return success;
+      return true;
     } catch (error) {
       console.error('Erro ao marcar item como comprado:', error);
       return false;
-    } finally {
-      setLoading(false);
     }
   };
 
   // Remover item
   const removeItem = async (itemId) => {
-    if (!userData.spreadsheetId) return false;
+    if (!user) return false;
 
     try {
-      setLoading(true);
-      
-      const success = await googleSheetsService.removeItem(userData.spreadsheetId, itemId);
-      
-      if (success) {
-        // Atualizar estado local
-        setItems(prev => prev.filter(item => item.id !== itemId));
+      const updatedItems = userData.items.filter(item => item.id !== itemId);
+      await saveData('items', updatedItems);
+
+      // Tentar remover do Google Sheets
+      if (userData.hasGoogleSheets && userData.spreadsheetId) {
+        try {
+          await googleSheetsService.removeItem(userData.spreadsheetId, itemId);
+        } catch (error) {
+          console.error('Erro ao remover do Google Sheets:', error);
+        }
       }
 
-      return success;
+      return true;
     } catch (error) {
       console.error('Erro ao remover item:', error);
       return false;
-    } finally {
-      setLoading(false);
     }
   };
 
   // Finalizar compra
   const finalizePurchase = async () => {
-    if (!userData.spreadsheetId) return false;
+    if (!user) return false;
 
     try {
-      setLoading(true);
+      const itemsComprados = userData.items.filter(item => item.status === 'comprado');
       
-      const success = await googleSheetsService.finalizePurchase(userData.spreadsheetId);
-      
-      if (success) {
-        // Recarregar dados
-        await loadUserData(userData.spreadsheetId);
+      if (itemsComprados.length === 0) {
+        return true; // Nada para finalizar
       }
 
-      return success;
+      // Adicionar ao histórico
+      const novoHistorico = [
+        ...userData.historico,
+        ...itemsComprados.map(item => ({
+          data: item.dataCompra,
+          item: item.nome,
+          quantidade: item.quantidade,
+          preco: item.preco,
+          categoria: item.categoria,
+          loja: 'Não informado',
+          total: item.quantidade * item.preco
+        }))
+      ];
+
+      // Remover itens comprados da lista
+      const itensRestantes = userData.items.filter(item => item.status !== 'comprado');
+
+      await saveData('historico', novoHistorico);
+      await saveData('items', itensRestantes);
+
+      // Tentar finalizar no Google Sheets
+      if (userData.hasGoogleSheets && userData.spreadsheetId) {
+        try {
+          await googleSheetsService.finalizePurchase(userData.spreadsheetId);
+        } catch (error) {
+          console.error('Erro ao finalizar no Google Sheets:', error);
+        }
+      }
+
+      return true;
     } catch (error) {
       console.error('Erro ao finalizar compra:', error);
       return false;
-    } finally {
-      setLoading(false);
     }
+  };
+
+  // Limpar dados do usuário
+  const clearUserData = () => {
+    if (user) {
+      localStorage.removeItem(`items_${user.email}`);
+      localStorage.removeItem(`historico_${user.email}`);
+    }
+    setUserData({
+      items: [],
+      historico: [],
+      isLoading: false,
+      hasGoogleSheets: false,
+      spreadsheetId: null
+    });
+    setUser(null);
   };
 
   // Calcular estatísticas
   const getStatistics = () => {
-    const itemsPendentes = items.filter(item => item.status === 'pendente');
-    const itemsComprados = items.filter(item => item.status === 'comprado');
+    const totalItens = userData.items.length;
+    const itensComprados = userData.items.filter(item => item.status === 'comprado').length;
+    const itensPendentes = totalItens - itensComprados;
     
-    const totalPendente = itemsPendentes.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
-    const totalComprado = itemsComprados.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
-    const totalHistorico = history.reduce((sum, item) => sum + item.total, 0);
-    
-    const categoriaFavorita = history.reduce((acc, item) => {
-      acc[item.categoria] = (acc[item.categoria] || 0) + 1;
-      return acc;
-    }, {});
-    
-    const categoriaTop = Object.keys(categoriaFavorita).reduce((a, b) => 
-      categoriaFavorita[a] > categoriaFavorita[b] ? a : b, 'Nenhuma'
+    const valorTotal = userData.items.reduce((total, item) => 
+      total + (item.preco * item.quantidade), 0
     );
+    
+    const valorComprado = userData.items
+      .filter(item => item.status === 'comprado')
+      .reduce((total, item) => total + (item.preco * item.quantidade), 0);
+
+    const valorPendente = valorTotal - valorComprado;
 
     return {
-      totalItens: items.length,
-      itensPendentes: itemsPendentes.length,
-      itensComprados: itemsComprados.length,
-      totalPendente,
-      totalComprado,
-      totalHistorico,
-      comprasRealizadas: history.length,
-      gastoMedio: history.length > 0 ? totalHistorico / history.length : 0,
-      categoriaFavorita: categoriaTop
+      totalItens,
+      itensComprados,
+      itensPendentes,
+      valorTotal,
+      valorComprado,
+      valorPendente
     };
   };
 
-  // Formatar valor em reais
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  // Limpar dados (logout)
-  const clearUserData = () => {
-    setUserData({
-      email: null,
-      name: null,
-      picture: null,
-      spreadsheetId: null,
-      isLoading: false,
-      isInitialized: false
-    });
-    setItems([]);
-    setHistory([]);
-  };
-
   const value = {
-    // Dados do usuário
     userData,
-    items,
-    history,
-    loading,
-    
-    // Ações
-    initializeUserData,
+    user,
+    setUser,
     loadUserData,
     addItem,
     markItemAsBought,
     removeItem,
     finalizePurchase,
     clearUserData,
-    
-    // Utilitários
-    getStatistics,
-    formatCurrency
+    getStatistics
   };
 
   return (
@@ -288,6 +321,4 @@ export const UserDataProvider = ({ children }) => {
     </UserDataContext.Provider>
   );
 };
-
-export default UserDataContext;
 
