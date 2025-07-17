@@ -1,13 +1,18 @@
 import React from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import Home from "./home"; // ou o componente principal que você usa
+import Home from "./home";
+import { UserDataProvider } from "../contexts/UserDataContext";
 
-const App = () => {
+function App() {
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
-      <Home />
+      <UserDataProvider>
+        <div className="App">
+          <Home />
+        </div>
+      </UserDataProvider>
     </GoogleOAuthProvider>
   );
-};
+}
 
 export default App;
