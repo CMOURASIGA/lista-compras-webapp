@@ -14,7 +14,6 @@ const Home = () => {
   const { userData, clearUserData, loadUserData } = useUserData();
 
   useEffect(() => {
-    // Verificar se há usuário logado no localStorage
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
@@ -31,7 +30,7 @@ const Home = () => {
 
   const handleLoginSuccess = (userInfo) => {
     setUser(userInfo);
-    setCurrentPage('lista'); // Redirecionar para lista após login
+    setCurrentPage('lista');
   };
 
   const handleLogout = () => {
@@ -82,11 +81,11 @@ const Home = () => {
                 Organize suas compras de forma inteligente
               </p>
             </div>
-            
+
             <div className="mb-6">
               <GoogleLoginButton onLoginSuccess={handleLoginSuccess} />
             </div>
-            
+
             <div className="text-sm text-gray-500">
               <p>Faça login com sua conta Google para:</p>
               <ul className="mt-2 space-y-1">
@@ -112,7 +111,7 @@ const Home = () => {
                 Lista de Compras
               </h1>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               {user.picture && (
                 <img
@@ -138,6 +137,33 @@ const Home = () => {
       {/* Navigation */}
       <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
 
+      {/* Botão de teste para criar planilha no Drive */}
+      {user && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+          <button
+            onClick={async () => {
+              try {
+                const userEmail = user.email;
+                const googleSheetsService = (await import('../services/googleSheetsService')).default;
+
+                const planilhaId = await googleSheetsService.createUserSpreadsheet(userEmail);
+                if (planilhaId) {
+                  alert("✅ Planilha criada com sucesso!\nID: " + planilhaId);
+                } else {
+                  alert("❌ Erro ao criar planilha. Verifique o console.");
+                }
+              } catch (error) {
+                console.error("Erro ao tentar criar a planilha:", error);
+                alert("⚠️ Erro inesperado. Verifique o console.");
+              }
+            }}
+            className="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 transition"
+          >
+            Criar Planilha Manualmente
+          </button>
+        </div>
+      )}
+
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {userData.isLoading ? (
@@ -156,4 +182,3 @@ const Home = () => {
 };
 
 export default Home;
-

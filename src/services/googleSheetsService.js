@@ -14,7 +14,6 @@ class GoogleSheetsService {
         window.gapi.load('client:auth2', async () => {
           try {
             await window.gapi.client.init({
-              // Removido apiKey para permitir uso multiusuário
               clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
               discoveryDocs: [
                 'https://sheets.googleapis.com/$discovery/rest?version=v4',
@@ -22,9 +21,9 @@ class GoogleSheetsService {
               ],
               scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file'
             });
-            
+
             this.isInitialized = true;
-            console.log('Google Sheets API inicializada com sucesso (modo multiusuário)');
+            console.log('🧩 API Google inicializada com sucesso com OAuth. Escopos ativos: spreadsheets, drive.file');
             resolve(true);
           } catch (error) {
             console.error('Erro ao inicializar Google API:', error);
@@ -39,14 +38,12 @@ class GoogleSheetsService {
     });
   }
 
-  // Verificar se o usuário está autenticado
   isSignedIn() {
     if (!this.isInitialized || !window.gapi.auth2) return false;
     const authInstance = window.gapi.auth2.getAuthInstance();
     return authInstance && authInstance.isSignedIn.get();
   }
 
-  // Fazer login se necessário
   async ensureSignedIn() {
     if (!this.isSignedIn()) {
       const authInstance = window.gapi.auth2.getAuthInstance();
@@ -56,13 +53,19 @@ class GoogleSheetsService {
     }
   }
 
-  // Criar nova planilha para o usuário (na conta dele)
   async createUserSpreadsheet(userEmail) {
     try {
       await this.initialize();
       await this.ensureSignedIn();
+      console.log('✅ Usuário autenticado para criação da planilha.');
 
-      console.log('Criando planilha na conta do usuário:', userEmail);
+      const existingId = this.getUserSpreadsheetId(userEmail);
+      if (existingId) {
+        console.log(`🔁 Planilha já existente para ${userEmail}: ${existingId}`);
+        return existingId;
+      }
+
+      console.log('🟢 Criando planilha na conta do usuário:', userEmail);
 
       const response = await window.gapi.client.sheets.spreadsheets.create({
         properties: {
@@ -93,31 +96,27 @@ class GoogleSheetsService {
       });
 
       const spreadsheetId = response.result.spreadsheetId;
-      console.log('Planilha criada na conta do usuário com ID:', spreadsheetId);
-      
-      // Configurar cabeçalhos das abas
+      console.log('✅ Planilha criada na conta do usuário com ID:', spreadsheetId);
+
       await this.setupHeaders(spreadsheetId);
-      
-      // Salvar ID da planilha no localStorage do usuário
+
       localStorage.setItem(`spreadsheet_${userEmail}`, spreadsheetId);
-      
+
       return spreadsheetId;
     } catch (error) {
-      console.error('Erro ao criar planilha:', error);
-      // Se falhar, continuar apenas com localStorage
-      console.log('Continuando apenas com localStorage...');
+      console.error('❌ Erro ao criar planilha:', error);
+      console.log('⚠️ Continuando apenas com localStorage...');
       return null;
     }
   }
 
-  // Configurar cabeçalhos das planilhas
   async setupHeaders(spreadsheetId) {
     try {
       const requests = [
         {
           updateCells: {
             range: {
-              sheetId: 0, // Aba "Itens"
+              sheetId: 0,
               startRowIndex: 0,
               endRowIndex: 1,
               startColumnIndex: 0,
@@ -141,7 +140,7 @@ class GoogleSheetsService {
         {
           updateCells: {
             range: {
-              sheetId: 1, // Aba "Historico"
+              sheetId: 1,
               startRowIndex: 0,
               endRowIndex: 1,
               startColumnIndex: 0,
@@ -168,19 +167,17 @@ class GoogleSheetsService {
         resource: { requests }
       });
 
-      console.log('Cabeçalhos configurados com sucesso');
+      console.log('✅ Cabeçalhos configurados com sucesso');
     } catch (error) {
       console.error('Erro ao configurar cabeçalhos:', error);
       throw error;
     }
   }
 
-  // Obter ID da planilha do usuário
   getUserSpreadsheetId(userEmail) {
     return localStorage.getItem(`spreadsheet_${userEmail}`);
   }
 
-  // Adicionar item à lista
   async addItem(spreadsheetId, item) {
     try {
       await this.ensureSignedIn();
@@ -205,16 +202,14 @@ class GoogleSheetsService {
         resource: { values }
       });
 
-      console.log('Item adicionado com sucesso na planilha do usuário');
+      console.log('✅ Item adicionado com sucesso');
       return response;
     } catch (error) {
-      console.error('Erro ao adicionar item na planilha:', error);
-      // Não falhar se Google Sheets não funcionar
+      console.error('Erro ao adicionar item:', error);
       return null;
     }
   }
 
-  // Ler itens da lista
   async getItems(spreadsheetId) {
     try {
       await this.ensureSignedIn();
@@ -236,29 +231,28 @@ class GoogleSheetsService {
         dataCompra: row[7] || ''
       }));
 
-      console.log('Itens carregados da planilha do usuário:', items.length);
+      console.log('Itens carregados:', items.length);
       return items;
     } catch (error) {
-      console.error('Erro ao ler itens da planilha:', error);
+      console.error('Erro ao ler itens:', error);
       return [];
     }
   }
 
-  // Marcar item como comprado
   async markItemAsBought(spreadsheetId, itemId) {
     try {
       await this.ensureSignedIn();
 
       const items = await this.getItems(spreadsheetId);
       const itemIndex = items.findIndex(item => item.id === itemId);
-      
+
       if (itemIndex === -1) {
         console.error('Item não encontrado:', itemId);
         return false;
       }
 
       const rowIndex = itemIndex + 2;
-      
+
       await window.gapi.client.sheets.spreadsheets.values.update({
         spreadsheetId,
         range: `Itens!F${rowIndex}:G${rowIndex}`,
@@ -268,7 +262,7 @@ class GoogleSheetsService {
         }
       });
 
-      console.log('Item marcado como comprado na planilha do usuário:', itemId);
+      console.log('Item marcado como comprado:', itemId);
       return true;
     } catch (error) {
       console.error('Erro ao marcar item como comprado:', error);
@@ -276,11 +270,10 @@ class GoogleSheetsService {
     }
   }
 
-  // Adicionar item ao histórico
   async addToHistory(spreadsheetId, item) {
     try {
       await this.ensureSignedIn();
-      
+
       const values = [[
         item.dataCompra,
         item.nome,
@@ -298,7 +291,7 @@ class GoogleSheetsService {
         resource: { values }
       });
 
-      console.log('Item adicionado ao histórico na planilha do usuário');
+      console.log('Item adicionado ao histórico');
       return response;
     } catch (error) {
       console.error('Erro ao adicionar ao histórico:', error);
@@ -306,7 +299,6 @@ class GoogleSheetsService {
     }
   }
 
-  // Ler histórico de compras
   async getHistory(spreadsheetId) {
     try {
       await this.ensureSignedIn();
@@ -327,22 +319,21 @@ class GoogleSheetsService {
         total: parseFloat(row[6]?.replace(',', '.')) || 0
       }));
 
-      console.log('Histórico carregado da planilha do usuário:', history.length);
+      console.log('Histórico carregado:', history.length);
       return history;
     } catch (error) {
-      console.error('Erro ao ler histórico da planilha:', error);
+      console.error('Erro ao ler histórico:', error);
       return [];
     }
   }
 
-  // Remover item da lista
   async removeItem(spreadsheetId, itemId) {
     try {
       await this.ensureSignedIn();
 
       const items = await this.getItems(spreadsheetId);
       const itemIndex = items.findIndex(item => item.id === itemId);
-      
+
       if (itemIndex === -1) return false;
 
       const rowIndex = itemIndex + 2;
@@ -363,15 +354,14 @@ class GoogleSheetsService {
         }
       });
 
-      console.log('Item removido da planilha do usuário:', itemId);
+      console.log('Item removido:', itemId);
       return true;
     } catch (error) {
-      console.error('Erro ao remover item da planilha:', error);
+      console.error('Erro ao remover item:', error);
       return false;
     }
   }
 
-  // Finalizar compra (mover itens comprados para histórico)
   async finalizePurchase(spreadsheetId) {
     try {
       await this.ensureSignedIn();
@@ -384,7 +374,6 @@ class GoogleSheetsService {
         return true;
       }
 
-      // Adicionar todos os itens comprados ao histórico
       for (const item of itemsComprados) {
         await this.addToHistory(spreadsheetId, {
           ...item,
@@ -392,22 +381,19 @@ class GoogleSheetsService {
         });
       }
 
-      // Remover itens comprados da lista principal
       for (const item of itemsComprados) {
         await this.removeItem(spreadsheetId, item.id);
       }
 
-      console.log('Compra finalizada com sucesso na planilha do usuário');
+      console.log('✅ Compra finalizada');
       return true;
     } catch (error) {
-      console.error('Erro ao finalizar compra na planilha:', error);
+      console.error('Erro ao finalizar compra:', error);
       return false;
     }
   }
 }
 
-// Instância singleton
+// Exportar instância única
 const googleSheetsService = new GoogleSheetsService();
-
 export default googleSheetsService;
-
