@@ -1,55 +1,25 @@
-import React from 'react';
-import { GoogleLogin } from '@react-oauth/google';
-import { jwtDecode } from 'jwt-decode';
-import { useUserData } from '../contexts/UserDataContext';
+import { useEffect } from "react";
 
-const GoogleLoginButton = ({ onLoginSuccess }) => {
-  const { loadUserData } = useUserData();
+export default function GoogleLoginButton({ onLoginSuccess }) {
+  useEffect(() => {
+    if (window.google) {
+      window.google.accounts.id.initialize({
+        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse,
+        auto_select: false,
+      });
 
-  const handleSuccess = async (credentialResponse) => {
-    try {
-      const decoded = jwtDecode(credentialResponse.credential);
-      console.log('Login bem-sucedido:', decoded);
-      
-      const userInfo = {
-        email: decoded.email,
-        name: decoded.name,
-        picture: decoded.picture
-      };
-
-      // Salvar no localStorage para persistência
-      localStorage.setItem("user", JSON.stringify(userInfo));
-
-      // Inicializar dados do usuário (incluindo criação de planilha se necessário)
-      await loadUserData(userInfo.email);
-      
-      if (onLoginSuccess) {
-        onLoginSuccess(userInfo);
-      }
-    } catch (error) {
-      console.error('Erro ao processar login:', error);
+      window.google.accounts.id.renderButton(
+        document.getElementById("gsi-button"),
+        { theme: "outline", size: "large" }
+      );
     }
+  }, []);
+
+  const handleCredentialResponse = (response) => {
+    const jwt = response.credential;
+    onLoginSuccess(jwt); // repassa o JWT para ser trocado por token de acesso
   };
 
-  const handleError = () => {
-    console.error('Erro no login com Google');
-  };
-
-  return (
-    <div className="flex justify-center">
-      <GoogleLogin
-        onSuccess={handleSuccess}
-        onError={handleError}
-        useOneTap={false}
-        theme="outline"
-        size="large"
-        text="signin_with"
-        shape="rectangular"
-        logo_alignment="left"
-      />
-    </div>
-  );
-};
-
-export default GoogleLoginButton;
-
+  return <div id="gsi-button"></div>;
+}
