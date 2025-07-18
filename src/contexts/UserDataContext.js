@@ -68,7 +68,6 @@ export const UserDataProvider = ({ children }) => {
       // Sem API Key, funciona apenas com OAuth do usuário
       console.log('Tentando carregar dados do Google Sheets do usuário...');
 
-      await googleSheetsService.initialize();
       
       let spreadsheetId = googleSheetsService.getUserSpreadsheetId(userEmail);
       
