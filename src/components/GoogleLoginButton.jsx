@@ -4,7 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 import { useUserData } from '../contexts/UserDataContext';
 
 const GoogleLoginButton = ({ onLoginSuccess }) => {
-  const { initializeUserData } = useUserData();
+  const { loadUserData } = useUserData();
 
   const handleSuccess = async (credentialResponse) => {
     try {
@@ -21,7 +21,7 @@ const GoogleLoginButton = ({ onLoginSuccess }) => {
       localStorage.setItem("user", JSON.stringify(userInfo));
 
       // Inicializar dados do usuário (incluindo criação de planilha se necessário)
-      await initializeUserData(userInfo);
+      await loadUserData(userInfo.email);
       
       if (onLoginSuccess) {
         onLoginSuccess(userInfo);

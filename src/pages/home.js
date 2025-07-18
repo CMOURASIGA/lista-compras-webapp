@@ -11,7 +11,7 @@ const Home = () => {
   const [user, setUser] = useState(null);
   const [currentPage, setCurrentPage] = useState('lista');
   const [isLoading, setIsLoading] = useState(true);
-  const { userData, clearUserData } = useUserData();
+  const { userData, clearUserData, loadUserData } = useUserData();
 
   useEffect(() => {
     // Verificar se há usuário logado no localStorage
@@ -20,6 +20,7 @@ const Home = () => {
       try {
         const userInfo = JSON.parse(savedUser);
         setUser(userInfo);
+        loadUserData(userInfo.email);
       } catch (error) {
         console.error('Erro ao carregar usuário salvo:', error);
         localStorage.removeItem('user');
