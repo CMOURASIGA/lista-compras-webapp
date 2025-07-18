@@ -80,7 +80,7 @@ export const UserDataProvider = ({ children }) => {
 
       if (spreadsheetId) {
         const result = await googleSheetsService.readSheet(spreadsheetId, "Itens!A2:G1000");
-        const items = (result.values || []).map(row => ({
+        const items = (resultHistorico.values || []).map(row => ({
           id: row[0] || '',
           nome: row[1] || '',
           quantidade: parseInt(row[2]) || 1,
@@ -90,8 +90,8 @@ export const UserDataProvider = ({ children }) => {
           dataCriacao: row[6] || '',
           dataCompra: row[7] || ''
         }));
-        const result = await googleSheetsService.readSheet(spreadsheetId, "Historico!A2:H1000");
-        const historico = (result.values || []).map(row => ({
+        const resultHistorico = await googleSheetsService.readSheet(spreadsheetId, "Historico!A2:H1000");
+        const historico = (resultHistorico.values || []).map(row => ({
           data: row[0] || '',
           item: row[1] || '',
           quantidade: parseInt(row[2]) || 1,
