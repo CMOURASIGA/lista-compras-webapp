@@ -28,9 +28,33 @@ const Home = () => {
     setIsLoading(false);
   }, []);
 
-  const handleLoginSuccess = (userInfo) => {
+  const handleLoginSuccess = async (userInfo) => {
     setUser(userInfo);
     setCurrentPage('lista');
+    
+    // Tentar criar planilha automaticamente após login
+    try {
+      const googleSheetsService = await import("../services/googleSheetsService");
+      
+      // Verificar se já existe uma planilha para este usuário
+      let spreadsheetId = googleSheetsService.getUserSpreadsheetId(userInfo.email);
+      
+      if (!spreadsheetId) {
+        console.log('Criando planilha automaticamente para o usuário...');
+        spreadsheetId = await googleSheetsService.createUserSpreadsheet(userInfo.email);
+        
+        if (spreadsheetId) {
+          console.log('Planilha criada automaticamente:', spreadsheetId);
+        }
+      }
+      
+      // Carregar dados do usuário
+      await loadUserData(userInfo.email);
+    } catch (error) {
+      console.error('Erro ao configurar planilha:', error);
+      // Continuar mesmo se houver erro na criação da planilha
+      await loadUserData(userInfo.email);
+    }
   };
 
   const handleLogout = () => {
@@ -144,7 +168,7 @@ const Home = () => {
             onClick={async () => {
               try {
                 const userEmail = user.email;
-                const googleSheetsService = (await import('../services/googleSheetsService')).default;
+                const googleSheetsService = await import("../services/googleSheetsService");
 
                 const planilhaId = await googleSheetsService.createUserSpreadsheet(userEmail);
                 if (planilhaId) {
