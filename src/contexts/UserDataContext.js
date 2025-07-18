@@ -79,7 +79,17 @@ export const UserDataProvider = ({ children }) => {
       }
 
       if (spreadsheetId) {
-        const items = await googleSheetsService.getItems(spreadsheetId);
+        const result = await googleSheetsService.readSheet(spreadsheetId, "Itens!A2:G1000");
+        const items = (result.values || []).map(row => ({
+          id: row[0] || '',
+          nome: row[1] || '',
+          quantidade: parseInt(row[2]) || 1,
+          categoria: row[3] || '',
+          preco: parseFloat(row[4]) || 0,
+          status: row[5] || 'pendente',
+          dataCriacao: row[6] || '',
+          dataCompra: row[7] || ''
+        }));
         const historico = await googleSheetsService.getHistory(spreadsheetId);
 
         setUserData(prev => ({
