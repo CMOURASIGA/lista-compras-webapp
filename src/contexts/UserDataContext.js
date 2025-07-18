@@ -170,7 +170,16 @@ export const UserDataProvider = ({ children }) => {
       // Tentar adicionar no Google Sheets
       if (userData.hasGoogleSheets && userData.spreadsheetId) {
         try {
-          await googleSheetsService.addItem(userData.spreadsheetId, newItem);
+          await googleSheetsService.writeSheet(userData.spreadsheetId, "Itens!A:H", [[
+        newItem.id,
+        newItem.nome,
+        newItem.quantidade,
+        newItem.categoria,
+        newItem.preco,
+        newItem.status,
+        newItem.dataCriacao,
+        newItem.dataCompra || ''
+    ]]);
         } catch (error) {
           console.error('Erro ao adicionar no Google Sheets:', error);
         }
