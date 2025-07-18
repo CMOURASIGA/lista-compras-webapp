@@ -76,7 +76,6 @@ export const UserDataProvider = ({ children }) => {
         spreadsheetId = await googleSheetsService.createUserSpreadsheet(userEmail);
       } else {
         // Se a planilha já existe, garantir que o usuário está autenticado para acessá-la
-        await googleSheetsService.ensureSignedIn();
       }
 
       if (spreadsheetId) {
