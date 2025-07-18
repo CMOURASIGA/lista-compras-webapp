@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import googleSheetsService from '../services/googleSheetsService';
+import * as googleSheetsService from '../services/googleSheetsService';
 import { formatCurrency, parseInputValue } from '../utils/formatters';
 
 const UserDataContext = createContext();
