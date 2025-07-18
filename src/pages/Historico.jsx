@@ -7,64 +7,44 @@ const Historico = () => {
   const [filtroMes, setFiltroMes] = useState('todos');
 
   useEffect(() => {
-    // Simular carregamento de dados do histórico
-    // Futuramente será integrado com Google Sheets
-    const mockHistorico = [
-      {
-        id: 1,
-        data: '2025-01-15',
-        itens: [
-          { nome: 'Leite', quantidade: 3, categoria: 'Laticínios', preco: 4.50 },
-          { nome: 'Pão', quantidade: 2, categoria: 'Padaria', preco: 3.00 }
-        ],
-        valorTotal: 19.50
-      },
-      {
-        id: 2,
-        data: '2025-01-10',
-        itens: [
-          { nome: 'Arroz', quantidade: 2, categoria: 'Grãos', preco: 8.50 },
-          { nome: 'Feijão', quantidade: 1, categoria: 'Grãos', preco: 6.00 },
-          { nome: 'Carne', quantidade: 1, categoria: 'Carnes', preco: 25.00 }
-        ],
-        valorTotal: 48.00
-      },
-      {
-        id: 3,
-        data: '2025-01-05',
-        itens: [
-          { nome: 'Banana', quantidade: 6, categoria: 'Frutas', preco: 1.50 },
-          { nome: 'Maçã', quantidade: 4, categoria: 'Frutas', preco: 2.00 }
-        ],
-        valorTotal: 17.00
-      }
-    ];
+    const historicoSalvo = JSON.parse(localStorage.getItem('purchaseHistory')) || [];
 
-    const mockEstatisticas = {
-      totalGasto: 84.50,
-      comprasRealizadas: 3,
-      itensComprados: 19,
-      categoriaFavorita: 'Grãos',
-      gastoMedio: 28.17
-    };
+    const totalGasto = historicoSalvo.reduce((soma, compra) => soma + compra.valorTotal, 0);
+    const itensComprados = historicoSalvo.reduce((soma, compra) => {
+      return soma + compra.itens.reduce((qtd, item) => qtd + item.quantidade, 0);
+    }, 0);
 
-    setTimeout(() => {
-      setHistorico(mockHistorico);
-      setEstatisticas(mockEstatisticas);
-      setLoading(false);
-    }, 1000);
+    const categorias = {};
+    historicoSalvo.forEach(compra => {
+      compra.itens.forEach(item => {
+        categorias[item.categoria] = (categorias[item.categoria] || 0) + item.quantidade;
+      });
+    });
+
+    const categoriaFavorita = Object.entries(categorias).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+
+    setHistorico(historicoSalvo);
+    setEstatisticas({
+      totalGasto,
+      comprasRealizadas: historicoSalvo.length,
+      itensComprados,
+      gastoMedio: historicoSalvo.length > 0 ? totalGasto / historicoSalvo.length : 0,
+      categoriaFavorita
+    });
+
+    setLoading(false);
   }, []);
 
   const formatarData = (data) => {
     return new Date(data).toLocaleDateString('pt-BR');
   };
 
-  const historicoFiltrado = filtroMes === 'todos' 
-    ? historico 
+  const historicoFiltrado = filtroMes === 'todos'
+    ? historico
     : historico.filter(compra => {
         const dataCompra = new Date(compra.data);
         const mesAtual = new Date();
-        return dataCompra.getMonth() === mesAtual.getMonth() && 
+        return dataCompra.getMonth() === mesAtual.getMonth() &&
                dataCompra.getFullYear() === mesAtual.getFullYear();
       });
 
@@ -129,8 +109,8 @@ const Historico = () => {
             <p className="text-sm">Finalize algumas compras para ver o histórico</p>
           </div>
         ) : (
-          historicoFiltrado.map((compra) => (
-            <div key={compra.id} className="bg-white rounded-lg shadow-md p-4">
+          historicoFiltrado.map((compra, index) => (
+            <div key={index} className="bg-white rounded-lg shadow-md p-4">
               <div className="flex justify-between items-center mb-3">
                 <div className="text-sm text-gray-600">
                   📅 {formatarData(compra.data)}
@@ -141,8 +121,8 @@ const Historico = () => {
               </div>
               
               <div className="space-y-2">
-                {compra.itens.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
+                {compra.itens.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
                     <div>
                       <span className="font-medium">{item.nome}</span>
                       <span className="text-sm text-gray-600 ml-2">
@@ -208,4 +188,3 @@ const Historico = () => {
 };
 
 export default Historico;
-
