@@ -267,13 +267,6 @@ class GoogleSheetsService {
         }
       });
 
-      // Adicionar ao histórico
-      const item = items[itemIndex];
-      await this.addToHistory(spreadsheetId, {
-        ...item,
-        dataCompra: new Date().toLocaleDateString('pt-BR')
-      });
-
       console.log('Item marcado como comprado:', itemId);
       return true;
     } catch (error) {
@@ -285,6 +278,8 @@ class GoogleSheetsService {
   // Adicionar item ao histórico
   async addToHistory(spreadsheetId, item) {
     try {
+      await this.ensureSignedIn();
+      
       const values = [[
         item.dataCompra,
         item.nome,
@@ -385,7 +380,10 @@ class GoogleSheetsService {
 
       // Adicionar todos os itens comprados ao histórico
       for (const item of itemsComprados) {
-        await this.addToHistory(spreadsheetId, item);
+        await this.addToHistory(spreadsheetId, {
+          ...item,
+          dataCompra: item.dataCompra || new Date().toLocaleDateString('pt-BR')
+        });
       }
 
       // Remover itens comprados da lista principal
