@@ -65,18 +65,15 @@ export const UserDataProvider = ({ children }) => {
   // Carregar dados do Google Sheets
   const loadFromGoogleSheets = async (userEmail) => {
     try {
-      // Verificar se temos API Key
-      if (!process.env.REACT_APP_GOOGLE_API_KEY) {
-        console.log('Google API Key não configurada, usando apenas localStorage');
-        return;
-      }
+      // Sem API Key, funciona apenas com OAuth do usuário
+      console.log('Tentando carregar dados do Google Sheets do usuário...');
 
       await googleSheetsService.initialize();
       
       let spreadsheetId = googleSheetsService.getUserSpreadsheetId(userEmail);
       
       if (!spreadsheetId) {
-        console.log('Criando nova planilha para o usuário...');
+        console.log('Criando nova planilha na conta do usuário...');
         spreadsheetId = await googleSheetsService.createUserSpreadsheet(userEmail);
       } else {
         // Se a planilha já existe, garantir que o usuário está autenticado para acessá-la
@@ -98,10 +95,15 @@ export const UserDataProvider = ({ children }) => {
         // Sincronizar com localStorage
         localStorage.setItem(`items_${userEmail}`, JSON.stringify(items));
         localStorage.setItem(`historico_${userEmail}`, JSON.stringify(historico));
+        
+        console.log('Dados carregados do Google Sheets com sucesso');
+      } else {
+        console.log('Continuando apenas com localStorage (Google Sheets não disponível)');
       }
 
     } catch (error) {
       console.error('Erro ao carregar do Google Sheets:', error);
+      console.log('Continuando apenas com localStorage como fallback');
       // Continuar usando localStorage como fallback
     }
   };
@@ -228,7 +230,7 @@ export const UserDataProvider = ({ children }) => {
       }
 
       // Adicionar ao histórico
-      const novoHistorico = [
+      const novoHistoricoLocal = [
         ...userData.historico,
         ...itemsComprados.map(item => ({
           data: item.dataCompra,
@@ -242,17 +244,31 @@ export const UserDataProvider = ({ children }) => {
       ];
 
       // Remover itens comprados da lista
-      const itensRestantes = userData.items.filter(item => item.status !== 'comprado');
+      const itensRestantesLocal = userData.items.filter(item => item.status !== 'comprado');
 
-      await saveData('historico', novoHistorico);
-      await saveData('items', itensRestantes);
+      // Salvar no localStorage primeiro
+      await saveData('historico', novoHistoricoLocal);
+      await saveData('items', itensRestantesLocal);
 
-      // Tentar finalizar no Google Sheets
+      // Tentar sincronizar com Google Sheets
       if (userData.hasGoogleSheets && userData.spreadsheetId) {
         try {
-          await googleSheetsService.finalizePurchase(userData.spreadsheetId);
+          // Adicionar ao histórico no Google Sheets
+          for (const item of itemsComprados) {
+            await googleSheetsService.addToHistory(userData.spreadsheetId, {
+              ...item,
+              dataCompra: item.dataCompra || new Date().toLocaleDateString("pt-BR")
+            });
+          }
+          // Remover itens comprados da lista no Google Sheets
+          for (const item of itemsComprados) {
+            await googleSheetsService.removeItem(userData.spreadsheetId, item.id);
+          }
+          // Após operações no Google Sheets, recarregar para garantir consistência
+          await loadUserData(user.email);
         } catch (error) {
-          console.error('Erro ao finalizar no Google Sheets:', error);
+          console.error('Erro ao sincronizar com Google Sheets durante finalização:', error);
+          // Não precisa lançar erro, apenas logar e continuar com localStorage
         }
       }
 
