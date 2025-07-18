@@ -90,7 +90,17 @@ export const UserDataProvider = ({ children }) => {
           dataCriacao: row[6] || '',
           dataCompra: row[7] || ''
         }));
-        const historico = await googleSheetsService.getHistory(spreadsheetId);
+        const result = await googleSheetsService.readSheet(spreadsheetId, "Historico!A2:H1000");
+        const historico = (result.values || []).map(row => ({
+          data: row[0] || '',
+          item: row[1] || '',
+          quantidade: parseInt(row[2]) || 1,
+          preco: parseFloat(row[3]) || 0,
+          categoria: row[4] || '',
+          loja: row[5] || 'Não informado',
+          total: parseFloat(row[6]) || 0,
+          id: row[7] || ''
+        }));
 
         setUserData(prev => ({
           ...prev,
