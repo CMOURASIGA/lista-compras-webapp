@@ -1,80 +1,29 @@
+import React from 'react';
+import { useGoogleLogin } from '@react-oauth/google';
+import { FcGoogle } from 'react-icons/fc'; // Usando um ícone do Google para o botão
 
-import { useEffect } from "react";
-
-export default function GoogleLoginButton({ onLoginSuccess }) {
-  useEffect(() => {
-    const loadGapi = async () => {
-      await new Promise((resolve) => {
-        const interval = setInterval(() => {
-          if (window.gapi) {
-            clearInterval(interval);
-            resolve();
-          }
-        }, 100);
-      });
-
-      window.gapi.load("client:auth2", async () => {
-        await window.gapi.client.init({
-          clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-          scope: "https://www.googleapis.com/auth/spreadsheets",
-        });
-
-        const authInstance = window.gapi.auth2.getAuthInstance();
-        if (!authInstance) return;
-
-        const isSignedIn = authInstance.isSignedIn.get();
-        if (isSignedIn) {
-          const user = authInstance.currentUser.get();
-          handleUser(user);
-        } else {
-          renderButton();
-        }
-      });
-    };
-
-    const renderButton = () => {
-      window.google.accounts.id.initialize({
-        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-        callback: handleCredentialResponse,
-      });
-
-      window.google.accounts.id.renderButton(document.getElementById("gsi-button"), {
-        theme: "outline",
-        size: "large",
-        text: "signin_with",
-        shape: "rectangular",
-      });
-    };
-
-    const handleCredentialResponse = async () => {
-      const user = window.gapi.auth2.getAuthInstance().currentUser.get();
-      handleUser(user);
-    };
-
-    const handleUser = async (user) => {
-      const profile = user.getBasicProfile();
-      const authResponse = user.getAuthResponse();
-
-      const userInfo = {
-        email: profile.getEmail(),
-        name: profile.getName(),
-        picture: profile.getImageUrl(),
-        token: authResponse.access_token,
-      };
-
-      localStorage.setItem("user", JSON.stringify(userInfo));
-      onLoginSuccess(userInfo);
-    };
-
-    loadGapi();
-  }, []);
+const GoogleLoginButton = ({ onLoginSuccess, onLoginError }) => {
+  const login = useGoogleLogin({
+    onSuccess: onLoginSuccess,
+    onError: onLoginError,
+    scope: [
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/drive.file', // Permissão para criar e acessar arquivos criados pelo app
+      'https://www.googleapis.com/auth/spreadsheets' // Permissão para gerenciar as planilhas
+    ].join(' '),
+  });
 
   return (
-    <div className="flex flex-col items-center space-y-4">
-      <div id="gsi-button"></div>
-      <p className="text-xs text-gray-500 text-center max-w-xs">
-        Ao fazer login, você autoriza o acesso ao Google Sheets para salvar suas listas de compras.
-      </p>
-    </div>
+    <button
+      onClick={() => login()}
+      className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+    >
+      <FcGoogle className="w-6 h-6 mr-3" />
+      <span className="font-medium">Fazer login com Google</span>
+    </button>
   );
-}
+};
+
+export default GoogleLoginButton;
+

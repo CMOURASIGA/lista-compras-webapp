@@ -1,25 +1,11 @@
 let accessToken = null;
 
 /**
- * Troca o JWT (credential) do Google Identity por um access token OAuth2
+ * Define o token de acesso globalmente para ser usado nas chamadas de API.
+ * @param {string | null} token O token de acesso ou null para limpar.
  */
-export async function exchangeToken(jwt) {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
-    }),
-  });
-
-  const data = await res.json();
-  if (data.access_token) {
-    accessToken = data.access_token;
-  } else {
-    throw new Error("Erro ao trocar JWT por token de acesso: " + JSON.stringify(data));
-  }
+export function setAccessToken(token) {
+  accessToken = token;
 }
 
 /**
@@ -131,4 +117,31 @@ export async function clearSheetRange(spreadsheetId, range) {
       },
     }
   );
+}
+
+/**
+ * Procura por uma planilha pelo nome no Google Drive do usuário.
+ * Requer o escopo 'https://www.googleapis.com/auth/drive.readonly' ou similar.
+ */
+export async function findSpreadsheetByName(fileName) {
+  if (!accessToken) throw new Error("Token de acesso não disponível");
+
+  const encodedFileName = encodeURIComponent(fileName);
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${encodedFileName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    console.error("Erro ao buscar planilha no Drive:", errorData);
+    throw new Error(`Erro na API do Google Drive: ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  return data.files && data.files.length > 0 ? data.files[0].id : null;
 }
