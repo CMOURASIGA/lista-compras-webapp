@@ -208,7 +208,14 @@ export const UserDataProvider = ({ children }) => {
       // Tentar atualizar no Google Sheets
       if (userData.hasGoogleSheets && userData.spreadsheetId) {
         try {
-          await googleSheetsService.markItemAsBought(userData.spreadsheetId, itemId);
+          const itemIndex = userData.items.findIndex(item => item.id === itemId);
+    if (itemIndex !== -1) {
+        const rowIndex = itemIndex + 2; // linha real no Google Sheets
+        await googleSheetsService.writeSheet(userData.spreadsheetId, `Itens!F${rowIndex}:G${rowIndex}`, [[
+            "comprado",
+            new Date().toLocaleDateString("pt-BR")
+        ]]);
+    }
         } catch (error) {
           console.error('Erro ao atualizar no Google Sheets:', error);
         }
