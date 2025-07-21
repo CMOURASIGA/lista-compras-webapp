@@ -1,58 +1,73 @@
+
 import { useEffect } from "react";
-import { jwtDecode } from "jwt-decode";
-import { exchangeToken } from "../services/googleSheetsService";
 
 export default function GoogleLoginButton({ onLoginSuccess }) {
   useEffect(() => {
-    const initializeGSI = () => {
-      if (window.google) {
-        window.google.accounts.id.initialize({
-          client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-          callback: handleCredentialResponse,
+    const loadGapi = async () => {
+      await new Promise((resolve) => {
+        const interval = setInterval(() => {
+          if (window.gapi) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, 100);
+      });
+
+      window.gapi.load("client:auth2", async () => {
+        await window.gapi.client.init({
+          clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+          scope: "https://www.googleapis.com/auth/spreadsheets",
         });
 
-        window.google.accounts.id.renderButton(
-          document.getElementById("gsi-button"),
-          {
-            theme: "outline",
-            size: "large",
-            text: "signin_with",
-            shape: "rectangular"
-          }
-        );
-      } else {
-        setTimeout(initializeGSI, 1000); // tenta novamente se ainda não carregou
-      }
+        const authInstance = window.gapi.auth2.getAuthInstance();
+        if (!authInstance) return;
+
+        const isSignedIn = authInstance.isSignedIn.get();
+        if (isSignedIn) {
+          const user = authInstance.currentUser.get();
+          handleUser(user);
+        } else {
+          renderButton();
+        }
+      });
     };
 
-    initializeGSI();
-  }, []);
+    const renderButton = () => {
+      window.google.accounts.id.initialize({
+        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse,
+      });
 
-  const handleCredentialResponse = async (response) => {
-    try {
-      const jwt = response.credential;
-      const userInfo = jwtDecode(jwt);
+      window.google.accounts.id.renderButton(document.getElementById("gsi-button"), {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "rectangular",
+      });
+    };
 
-      console.log("Usuário logado via GSI:", userInfo);
+    const handleCredentialResponse = async () => {
+      const user = window.gapi.auth2.getAuthInstance().currentUser.get();
+      handleUser(user);
+    };
 
-      // Trocar o JWT por accessToken
-      await exchangeToken(jwt);
+    const handleUser = async (user) => {
+      const profile = user.getBasicProfile();
+      const authResponse = user.getAuthResponse();
 
-      const userData = {
-        email: userInfo.email,
-        name: userInfo.name,
-        picture: userInfo.picture,
-        jwt: jwt,
+      const userInfo = {
+        email: profile.getEmail(),
+        name: profile.getName(),
+        picture: profile.getImageUrl(),
+        token: authResponse.access_token,
       };
 
-      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("user", JSON.stringify(userInfo));
+      onLoginSuccess(userInfo);
+    };
 
-      // Chamar callback de sucesso
-      onLoginSuccess(userData);
-    } catch (error) {
-      console.error("Erro no login GSI:", error);
-    }
-  };
+    loadGapi();
+  }, []);
 
   return (
     <div className="flex flex-col items-center space-y-4">
