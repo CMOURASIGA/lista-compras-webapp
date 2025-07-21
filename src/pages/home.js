@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import GoogleLoginButton from '../components/GoogleLoginButton';
 import Navigation from '../components/Navigation';
 import ListaCompras from './ListaCompras';
@@ -11,10 +11,14 @@ const Home = () => {
   const [currentPage, setCurrentPage] = useState('lista');
   const { user, userData, handleLogin, handleLogout, initializeSheetAndLoadData } = useUserData();
 
-  // O tokenResponse vem do hook useGoogleLogin
+  useEffect(() => {
+    if (user && !userData.spreadsheetId) {
+      initializeSheetAndLoadData(user.email);
+    }
+  }, [user, userData.spreadsheetId, initializeSheetAndLoadData]);
+
   const handleLoginSuccess = (tokenResponse) => {
     handleLogin(tokenResponse);
-    // A navegação de página pode ser gerenciada dentro do handleLogin ou após o estado do usuário ser atualizado
   };
 
   const handleLoginError = (error) => {
@@ -23,12 +27,10 @@ const Home = () => {
 
   const onLogout = () => {
     handleLogout();
-    setCurrentPage('lista'); // Reseta para a página inicial após logout
+    setCurrentPage('lista');
   };
 
   const renderCurrentPage = () => {
-    if (!user) return null;
-
     switch (currentPage) {
       case 'lista':
         return <ListaCompras />;
@@ -120,18 +122,6 @@ const Home = () => {
       </header>
 
       <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
-
-      {/* O botão manual agora usa a função do contexto */}
-      {user && !userData.spreadsheetId && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-          <button
-            onClick={() => initializeSheetAndLoadData(user.email)}
-            className="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 transition"
-          >
-            Criar/Verificar Planilha
-          </button>
-        </div>
-      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {renderCurrentPage()}

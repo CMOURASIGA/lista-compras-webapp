@@ -70,7 +70,7 @@ export const UserDataProvider = ({ children }) => {
 
   const initializeSheetAndLoadData = async (userEmail) => {
     try {
-      const sheetName = `Lista de Compras - ${userEmail}`;
+      const sheetName = 'Lista de Compras de Mercado';
       let sheetId = googleSheetsService.getUserSpreadsheetId(userEmail);
 
       if (!sheetId) {
@@ -149,12 +149,177 @@ export const UserDataProvider = ({ children }) => {
     });
   };
 
+  const getStatistics = () => {
+    const items = userData.items || [];
+    const stats = {
+      totalItens: items.length,
+      itensComprados: 0,
+      itensPendentes: 0,
+      valorTotal: 0,
+      valorComprado: 0,
+      valorPendente: 0,
+    };
+
+    items.forEach(item => {
+      const itemTotal = (item.preco || 0) * (item.quantidade || 1);
+      stats.valorTotal += itemTotal;
+
+      if (item.status === 'comprado') {
+        stats.itensComprados++;
+        stats.valorComprado += itemTotal;
+      } else {
+        stats.itensPendentes++;
+        stats.valorPendente += itemTotal;
+      }
+    });
+
+    return stats;
+  };
+
+  const markItemAsBought = async (itemId) => {
+    const itemIndex = userData.items.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) return;
+
+    const updatedItems = [...userData.items];
+    const item = updatedItems[itemIndex];
+    item.status = 'comprado';
+    item.dataCompra = new Date().toLocaleDateString('pt-BR');
+
+    setUserData(prev => ({ ...prev, items: updatedItems }));
+    if (user) {
+      localStorage.setItem(`items_${user.email}`, JSON.stringify(updatedItems));
+    }
+
+    if (userData.spreadsheetId) {
+      // A linha na planilha é o índice do array + 2 (cabeçalho e 0-based vs 1-based)
+      const rowIndexInSheet = itemIndex + 2;
+      
+      // O range agora é F e H, para status e data da compra
+      const range = `Itens!F${rowIndexInSheet}:H${rowIndexInSheet}`;
+      const values = [[item.status, item.dataCriacao, item.dataCompra]];
+
+      try {
+        // Usamos a função `updateItemStatusInSheet` que é mais específica
+        await googleSheetsService.updateItemStatusInSheet(
+          userData.spreadsheetId,
+          itemId,
+          item.status,
+          item.dataCompra
+        );
+      } catch (error) {
+        console.error("Erro ao marcar item como comprado no Google Sheets:", error);
+        // Opcional: reverter a mudança de estado ou notificar o usuário
+      }
+    }
+  };
+
+  const removeItem = async (itemId) => {
+    const itemIndex = userData.items.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) return;
+
+    const updatedItems = userData.items.filter(i => i.id !== itemId);
+    setUserData(prev => ({ ...prev, items: updatedItems }));
+    if (user) {
+      localStorage.setItem(`items_${user.email}`, JSON.stringify(updatedItems));
+    }
+
+    if (userData.spreadsheetId) {
+      const rowIndex = itemIndex + 2;
+      const range = `Itens!A${rowIndex}:H${rowIndex}`;
+      try {
+        // This is a simplification. Deleting a row shifts all subsequent rows.
+        // A more robust solution would be to clear the row and then maybe sort/filter.
+        // For now, we clear it. A better approach for full CRUD is the Sheets API batchUpdate.
+        await googleSheetsService.clearSheetRange(userData.spreadsheetId, range);
+      } catch (error) {
+        console.error("Erro ao remover item no Google Sheets:", error);
+        // Optionally revert state change or notify user
+      }
+    }
+  };
+
+  const addItem = async (itemData) => {
+    if (!userData.spreadsheetId || !user) {
+      console.error("Ação não permitida: ID da planilha ou usuário não encontrado.");
+      return false;
+    }
+
+    const newItem = {
+      id: `item_${new Date().getTime()}`,
+      ...itemData,
+      preco: parseFloat(itemData.preco?.toString().replace(',', '.')) || 0,
+      status: 'pendente',
+      dataCriacao: new Date().toLocaleDateString('pt-BR'),
+      dataCompra: ''
+    };
+
+    const updatedItems = [...userData.items, newItem];
+    setUserData(prev => ({ ...prev, items: updatedItems }));
+    localStorage.setItem(`items_${user.email}`, JSON.stringify(updatedItems));
+
+    try {
+      // Corrigido: Usa a função de serviço `addItemToSheet` que faz o append de forma segura
+      await googleSheetsService.addItemToSheet(userData.spreadsheetId, newItem);
+      return true;
+    } catch (error) {
+      console.error("Erro ao adicionar item no Google Sheets:", error);
+      
+      // Reverte a adição local em caso de falha na API
+      const revertedItems = userData.items.filter(item => item.id !== newItem.id);
+      setUserData(prev => ({ ...prev, items: revertedItems }));
+      localStorage.setItem(`items_${user.email}`, JSON.stringify(revertedItems));
+      
+      return false;
+    }
+  };
+
+  const finalizePurchase = async () => {
+    if (!userData.spreadsheetId || !user) {
+      console.error("Ação não permitida: ID da planilha ou usuário não encontrado.");
+      return false;
+    }
+
+    const itemsToMove = userData.items.filter(item => item.status === 'comprado');
+    if (itemsToMove.length === 0) {
+      return true; // Nada a fazer
+    }
+
+    try {
+      // Move os itens na planilha do Google
+      await googleSheetsService.moveItemsToHistory(userData.spreadsheetId, itemsToMove);
+
+      // Atualiza o estado local
+      const remainingItems = userData.items.filter(item => item.status !== 'comprado');
+      const newHistory = [...userData.historico, ...itemsToMove];
+
+      setUserData(prev => ({
+        ...prev,
+        items: remainingItems,
+        historico: newHistory,
+      }));
+
+      // Atualiza o localStorage
+      localStorage.setItem(`items_${user.email}`, JSON.stringify(remainingItems));
+      localStorage.setItem(`historico_${user.email}`, JSON.stringify(newHistory));
+
+      return true;
+    } catch (error) {
+      console.error("Erro ao finalizar a compra:", error);
+      return false;
+    }
+  };
+
   const value = {
     user,
     userData,
     handleLogin,
     handleLogout,
     initializeSheetAndLoadData,
+    getStatistics,
+    markItemAsBought,
+    removeItem,
+    addItem,
+    finalizePurchase,
   };
 
   return (

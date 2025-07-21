@@ -95,14 +95,6 @@ export function getUserSpreadsheetId(userEmail) {
 }
 
 /**
- * Define manualmente o accessToken, se necessário
- */
-export function setAccessToken(token) {
-  accessToken = token;
-}
-
-
-/**
  * Limpa células específicas em uma planilha
  */
 export async function clearSheetRange(spreadsheetId, range) {

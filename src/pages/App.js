@@ -5,13 +5,13 @@ import { UserDataProvider } from "../contexts/UserDataContext";
 
 function App() {
   return (
-    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
-      <UserDataProvider>
+    <UserDataProvider>
+      <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
         <div className="App">
           <Home />
         </div>
-      </UserDataProvider>
-    </GoogleOAuthProvider>
+      </GoogleOAuthProvider>
+    </UserDataProvider>
   );
 }
 
