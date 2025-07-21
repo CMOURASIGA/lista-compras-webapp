@@ -294,10 +294,7 @@ export const UserDataProvider = ({ children }) => {
         try {
           // Adicionar ao histórico no Google Sheets
           for (const item of itemsComprados) {
-            await googleSheetsService.addToHistory(userData.spreadsheetId, {
-              ...item,
-              dataCompra: item.dataCompra || new Date().toLocaleDateString("pt-BR")
-            });
+          await googleSheetsService.writeSheet(userData.spreadsheetId, "Historico!A:H", [[item.dataCompra, item.nome, item.quantidade, item.preco, item.categoria, item.loja, item.quantidade * item.preco, item.id]]);
           }
           // Remover itens comprados da lista no Google Sheets
           for (const item of itemsComprados) {
