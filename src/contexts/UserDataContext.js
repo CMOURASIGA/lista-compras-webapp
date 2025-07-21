@@ -239,7 +239,12 @@ export const UserDataProvider = ({ children }) => {
       // Tentar remover do Google Sheets
       if (userData.hasGoogleSheets && userData.spreadsheetId) {
         try {
-          await googleSheetsService.removeItem(userData.spreadsheetId, itemId);
+          const rows = userData.items;
+            const itemIndex = rows.findIndex(i => i.id === itemId);
+            if (itemIndex !== -1) {
+              const startIndex = itemIndex + 1;
+              await googleSheetsService.clearSheetRange(userData.spreadsheetId, `Itens!A${startIndex + 1}:H${startIndex + 1}`);
+            }
         } catch (error) {
           console.error('Erro ao remover do Google Sheets:', error);
         }
@@ -296,7 +301,12 @@ export const UserDataProvider = ({ children }) => {
           }
           // Remover itens comprados da lista no Google Sheets
           for (const item of itemsComprados) {
-            await googleSheetsService.removeItem(userData.spreadsheetId, item.id);
+            const rows = userData.items;
+            const itemIndex = rows.findIndex(i => i.id === item.id);
+            if (itemIndex !== -1) {
+              const startIndex = itemIndex + 1;
+              await googleSheetsService.clearSheetRange(userData.spreadsheetId, `Itens!A${startIndex + 1}:H${startIndex + 1}`);
+            }
           }
           // Após operações no Google Sheets, recarregar para garantir consistência
           await loadUserData(user.email);

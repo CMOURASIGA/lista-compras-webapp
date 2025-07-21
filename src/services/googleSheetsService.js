@@ -114,3 +114,21 @@ export function getUserSpreadsheetId(userEmail) {
 export function setAccessToken(token) {
   accessToken = token;
 }
+
+
+/**
+ * Limpa células específicas em uma planilha
+ */
+export async function clearSheetRange(spreadsheetId, range) {
+  if (!accessToken) throw new Error("Token de acesso não disponível");
+
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:clear`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+}
