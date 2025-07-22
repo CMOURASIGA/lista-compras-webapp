@@ -1,8 +1,4 @@
-## Tarefas
-
-- [x] Extrair e analisar a estrutura do projeto
-- [x] Identificar e corrigir o erro de importação
-- [x] Validar todo o código e dependências
-- [ ] Testar o build de produção
-- [ ] Entregar projeto corrigido e validado
+REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id_here
+REACT_APP_GOOGLE_API_KEY=your_google_api_key_here
+REACT_APP_PLANILHA_TEMPLATE_ID=your_template_id_here
 

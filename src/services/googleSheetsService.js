@@ -324,6 +324,51 @@ export const moveItemsToHistory = async (spreadsheetId, itemsToMove) => {
 };
 
 /**
+ * Edita um item existente na aba "Itens".
+ * @param {string} spreadsheetId - O ID da planilha.
+ * @param {number} rowIndex - O índice da linha a ser editada (base 1).
+ * @param {Object} item - O item com os novos dados.
+ */
+export const editItemInSheet = async (spreadsheetId, rowIndex, item) => {
+  const headers = getAuthHeaders();
+  const sheetMetadata = await getSheetMetadata(spreadsheetId);
+  const itensSheet = sheetMetadata.find(s => s.properties.title === 'Itens');
+  if (!itensSheet) throw new Error("Aba 'Itens' não encontrada.");
+
+  const values = [[
+    item.id, item.nome, item.quantidade, item.categoria,
+    item.preco, item.status, item.dataCriacao, item.dataCompra
+  ]];
+
+  const requests = [{
+    updateCells: {
+      range: { 
+        sheetId: itensSheet.properties.sheetId, 
+        startRowIndex: rowIndex - 1, 
+        endRowIndex: rowIndex, 
+        startColumnIndex: 0, 
+        endColumnIndex: 8 
+      },
+      rows: [{
+        values: values[0].map(value => ({
+          userEnteredValue: { stringValue: value.toString() }
+        }))
+      }],
+      fields: 'userEnteredValue',
+    },
+  }];
+
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ requests }),
+    }
+  );
+};
+
+/**
  * Limpa um intervalo de células na planilha.
  * @param {string} spreadsheetId - O ID da planilha.
  * @param {string} range - O intervalo a ser limpo (ex: 'Itens!A2:H2').

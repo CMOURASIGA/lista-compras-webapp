@@ -12,10 +12,9 @@ const Home = () => {
   const { user, userData, handleLogin, handleLogout, initializeSheetAndLoadData } = useUserData();
 
   useEffect(() => {
-    if (user && !userData.spreadsheetId) {
-      initializeSheetAndLoadData(user.email);
-    }
-  }, [user, userData.spreadsheetId, initializeSheetAndLoadData]);
+    // Removido para evitar criação dupla de planilhas
+    // A inicialização já é feita no handleLogin do UserDataContext
+  }, []);
 
   const handleLoginSuccess = (tokenResponse) => {
     handleLogin(tokenResponse);

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
 import { formatCurrency } from '../utils/formatters';
 
 const ListaCompras = () => {
-  const { userData, toggleItemStatus, removeItem, getStatistics } = useUserData();
+  const { userData, toggleItemStatus, removeItem, editItem, getStatistics } = useUserData();
+  const [editingItem, setEditingItem] = useState(null);
+  const [editForm, setEditForm] = useState({});
   const stats = getStatistics();
 
   const handleToggleComprado = async (itemId) => {
@@ -14,6 +16,31 @@ const ListaCompras = () => {
     if (window.confirm('Tem certeza que deseja remover este item?')) {
       await removeItem(itemId);
     }
+  };
+
+  const handleEditItem = (item) => {
+    setEditingItem(item.id);
+    setEditForm({
+      nome: item.nome,
+      quantidade: item.quantidade,
+      categoria: item.categoria,
+      preco: item.preco
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    const success = await editItem(editingItem, editForm);
+    if (success) {
+      setEditingItem(null);
+      setEditForm({});
+    } else {
+      alert('Erro ao editar item. Tente novamente.');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+    setEditForm({});
   };
 
   if (userData.isLoading) {
@@ -99,52 +126,128 @@ const ListaCompras = () => {
                   : 'border-blue-500 hover:shadow-lg'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={() => handleToggleComprado(item.id)}
-                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      item.status === 'comprado'
-                        ? 'bg-green-500 border-green-500 text-white'
-                        : 'border-gray-300 hover:border-green-500 hover:bg-green-50'
-                    }`}
-                  >
-                    {item.status === 'comprado' && '✓'}
-                  </button>
-                  
-                  <div className={item.status === 'comprado' ? 'line-through text-gray-500' : ''}>
-                    <div className="font-medium text-lg">{item.nome}</div>
-                    <div className="text-sm text-gray-600 flex items-center space-x-3">
-                      <span className="bg-gray-100 px-2 py-1 rounded text-xs">
-                        {item.quantidade}x
-                      </span>
-                      <span className="bg-blue-100 px-2 py-1 rounded text-xs">
-                        {item.categoria}
-                      </span>
-                      <span className="font-medium">
-                        {formatCurrency(item.preco)} cada
-                      </span>
-                      <span className="font-bold text-purple-600">
-                        Total: {formatCurrency(item.preco * item.quantidade)}
-                      </span>
+              {editingItem === item.id ? (
+                // Modo de edição
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                      <input
+                        type="text"
+                        value={editForm.nome}
+                        onChange={(e) => setEditForm({...editForm, nome: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
                     </div>
-                    {item.dataCriacao && (
-                      <div className="text-xs text-gray-400 mt-1">
-                        Adicionado em {item.dataCriacao}
-                        {item.dataCompra && ` • Comprado em ${item.dataCompra}`}
-                      </div>
-                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
+                      <input
+                        type="number"
+                        value={editForm.quantidade}
+                        onChange={(e) => setEditForm({...editForm, quantidade: parseInt(e.target.value) || 1})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                      <select
+                        value={editForm.categoria}
+                        onChange={(e) => setEditForm({...editForm, categoria: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="Grãos">Grãos</option>
+                        <option value="Laticínios">Laticínios</option>
+                        <option value="Frutas">Frutas</option>
+                        <option value="Carnes">Carnes</option>
+                        <option value="Padaria">Padaria</option>
+                        <option value="Limpeza">Limpeza</option>
+                        <option value="Outros">Outros</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Preço (R$)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editForm.preco}
+                        onChange={(e) => setEditForm({...editForm, preco: parseFloat(e.target.value) || 0})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleSaveEdit}
+                      className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                    >
+                      Salvar
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 </div>
-                
-                <button
-                  onClick={() => handleRemoveItem(item.id)}
-                  className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                  title="Remover item"
-                >
-                  🗑️
-                </button>
-              </div>
+              ) : (
+                // Modo de visualização
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={() => handleToggleComprado(item.id)}
+                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        item.status === 'comprado'
+                          ? 'bg-green-500 border-green-500 text-white'
+                          : 'border-gray-300 hover:border-green-500 hover:bg-green-50'
+                      }`}
+                    >
+                      {item.status === 'comprado' && '✓'}
+                    </button>
+                    
+                    <div className={item.status === 'comprado' ? 'line-through text-gray-500' : ''}>
+                      <div className="font-medium text-lg">{item.nome}</div>
+                      <div className="text-sm text-gray-600 flex items-center space-x-3">
+                        <span className="bg-gray-100 px-2 py-1 rounded text-xs">
+                          {item.quantidade}x
+                        </span>
+                        <span className="bg-blue-100 px-2 py-1 rounded text-xs">
+                          {item.categoria}
+                        </span>
+                        <span className="font-medium">
+                          {formatCurrency(item.preco)} cada
+                        </span>
+                        <span className="font-bold text-purple-600">
+                          Total: {formatCurrency(item.preco * item.quantidade)}
+                        </span>
+                      </div>
+                      {item.dataCriacao && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Adicionado em {item.dataCriacao}
+                          {item.dataCompra && ` • Comprado em ${item.dataCompra}`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEditItem(item)}
+                      className="text-blue-500 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                      title="Editar item"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => handleRemoveItem(item.id)}
+                      className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                      title="Remover item"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))
         )}

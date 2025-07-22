@@ -1,54 +1,82 @@
 import React, { useState, useEffect } from 'react';
+import { useUserData } from '../contexts/UserDataContext';
 
 const Historico = () => {
-  const [historico, setHistorico] = useState([]);
+  const { userData } = useUserData();
   const [estatisticas, setEstatisticas] = useState({});
   const [loading, setLoading] = useState(true);
   const [filtroMes, setFiltroMes] = useState('todos');
 
   useEffect(() => {
-    const historicoSalvo = JSON.parse(localStorage.getItem('purchaseHistory')) || [];
+    if (userData.historico) {
+      // Converter dados do histórico para o formato esperado
+      const historicoFormatado = userData.historico.map(item => ({
+        data: item.data,
+        valorTotal: item.total || (item.preco * item.quantidade),
+        itens: [{
+          nome: item.item,
+          quantidade: item.quantidade,
+          categoria: item.categoria,
+          preco: item.preco
+        }]
+      }));
 
-    const totalGasto = historicoSalvo.reduce((soma, compra) => soma + compra.valorTotal, 0);
-    const itensComprados = historicoSalvo.reduce((soma, compra) => {
-      return soma + compra.itens.reduce((qtd, item) => qtd + item.quantidade, 0);
-    }, 0);
+      const totalGasto = historicoFormatado.reduce((soma, compra) => soma + compra.valorTotal, 0);
+      const itensComprados = historicoFormatado.reduce((soma, compra) => {
+        return soma + compra.itens.reduce((qtd, item) => qtd + item.quantidade, 0);
+      }, 0);
 
-    const categorias = {};
-    historicoSalvo.forEach(compra => {
-      compra.itens.forEach(item => {
-        categorias[item.categoria] = (categorias[item.categoria] || 0) + item.quantidade;
+      const categorias = {};
+      historicoFormatado.forEach(compra => {
+        compra.itens.forEach(item => {
+          categorias[item.categoria] = (categorias[item.categoria] || 0) + item.quantidade;
+        });
       });
-    });
 
-    const categoriaFavorita = Object.entries(categorias).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+      const categoriaFavorita = Object.entries(categorias).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
 
-    setHistorico(historicoSalvo);
-    setEstatisticas({
-      totalGasto,
-      comprasRealizadas: historicoSalvo.length,
-      itensComprados,
-      gastoMedio: historicoSalvo.length > 0 ? totalGasto / historicoSalvo.length : 0,
-      categoriaFavorita
-    });
+      setEstatisticas({
+        totalGasto,
+        comprasRealizadas: historicoFormatado.length,
+        itensComprados,
+        gastoMedio: historicoFormatado.length > 0 ? totalGasto / historicoFormatado.length : 0,
+        categoriaFavorita
+      });
 
-    setLoading(false);
-  }, []);
+      setLoading(false);
+    }
+  }, [userData.historico]);
 
   const formatarData = (data) => {
+    // Se a data já está no formato brasileiro, retorna como está
+    if (typeof data === 'string' && data.includes('/')) {
+      return data;
+    }
     return new Date(data).toLocaleDateString('pt-BR');
   };
 
+  // Converter dados do histórico para o formato esperado para exibição
+  const historicoFormatado = userData.historico ? userData.historico.map(item => ({
+    data: item.data,
+    valorTotal: item.total || (item.preco * item.quantidade),
+    itens: [{
+      nome: item.item,
+      quantidade: item.quantidade,
+      categoria: item.categoria,
+      preco: item.preco
+    }]
+  })) : [];
+
   const historicoFiltrado = filtroMes === 'todos'
-    ? historico
-    : historico.filter(compra => {
-        const dataCompra = new Date(compra.data);
+    ? historicoFormatado
+    : historicoFormatado.filter(compra => {
+        const dataCompra = new Date(compra.data.split('/').reverse().join('-')); // Converte DD/MM/YYYY para YYYY-MM-DD
         const mesAtual = new Date();
         return dataCompra.getMonth() === mesAtual.getMonth() &&
                dataCompra.getFullYear() === mesAtual.getFullYear();
       });
 
-  if (loading) {
+  if (loading || userData.isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -151,7 +179,7 @@ const Historico = () => {
         <div className="bg-white rounded-lg shadow-md p-4 mt-6">
           <h3 className="text-lg font-semibold mb-4 text-gray-800">📈 Gastos por Categoria</h3>
           <div className="space-y-3">
-            {['Grãos', 'Laticínios', 'Frutas', 'Carnes', 'Padaria'].map((categoria) => {
+            {['Grãos', 'Laticínios', 'Frutas', 'Carnes', 'Padaria', 'Limpeza', 'Outros'].map((categoria) => {
               const gastoCategoria = historicoFiltrado.reduce((total, compra) => {
                 return total + compra.itens
                   .filter(item => item.categoria === categoria)
