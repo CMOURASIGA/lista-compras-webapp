@@ -19,12 +19,6 @@ export const UserDataProvider = ({ children }) => {
     isLoading: true,
     spreadsheetId: null
   });
-  const [showLoadPreviousDialog, setShowLoadPreviousDialog] = useState(false);
-  const [previousItems, setPreviousItems] = useState([]);
-  
-  // NOVA FUNCIONALIDADE: Estados para carregar produtos do histórico
-  const [showLoadHistoryDialog, setShowLoadHistoryDialog] = useState(false);
-  const [historyItems, setHistoryItems] = useState([]);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -32,8 +26,6 @@ export const UserDataProvider = ({ children }) => {
       try {
         const userInfo = JSON.parse(savedUser);
         setUser(userInfo);
-        // Carregar dados locais imediatamente para usuários já logados
-        loadDataFromLocalStorage(userInfo.email);
       } catch (error) {
         console.error('Erro ao carregar usuário do localStorage:', error);
         localStorage.removeItem('user');
@@ -41,18 +33,6 @@ export const UserDataProvider = ({ children }) => {
     }
     setUserData(prev => ({ ...prev, isLoading: false }));
   }, []);
-
-  // Efeito separado para inicializar planilha quando usuário é carregado
-  useEffect(() => {
-    if (user && !userData.spreadsheetId && !userData.isLoading) {
-      // Tentar obter token do localStorage ou solicitar novo login
-      const savedToken = localStorage.getItem(`token_${user.email}`);
-      if (savedToken) {
-        googleSheetsService.setAccessToken(savedToken);
-        initializeSheetAndLoadData(user.email);
-      }
-    }
-  }, [user, userData.spreadsheetId, userData.isLoading]);
 
   const handleLogin = async (tokenResponse) => {
     if (!tokenResponse.access_token) {
@@ -66,22 +46,18 @@ export const UserDataProvider = ({ children }) => {
     try {
       // 1. Definir o token de acesso para uso nas APIs
       googleSheetsService.setAccessToken(tokenResponse.access_token);
-      
-      // 2. Buscar informações do usuário primeiro para obter o email
+
+      // 2. Buscar informações do usuário do Google
       const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
       });
       if (!userInfoRes.ok) throw new Error('Falha ao buscar dados do usuário.');
       
       const userInfo = await userInfoRes.json();
-      
-      // 3. Salvar dados do usuário e token no localStorage
       localStorage.setItem('user', JSON.stringify(userInfo));
-      localStorage.setItem(`token_${userInfo.email}`, tokenResponse.access_token);
-      
       setUser(userInfo);
 
-      // 4. Inicializar a planilha e carregar os dados
+      // 3. Inicializar a planilha e carregar os dados
       await initializeSheetAndLoadData(userInfo.email);
 
     } catch (error) {
@@ -138,61 +114,22 @@ export const UserDataProvider = ({ children }) => {
         localStorage.setItem(`historico_${user.email}`, JSON.stringify(historico));
       }
 
-      // NOVA FUNCIONALIDADE: Verificar se há produtos no histórico para oferecer carregamento
-      if (historico.length > 0 && items.length === 0) {
-        await checkAndOfferHistoryItems(spreadsheetId);
-      }
-
     } catch (error) {
       console.error("Erro ao carregar dados do Google Sheets:", error);
       if (user) loadDataFromLocalStorage(user.email);
     }
   };
 
-  // NOVA FUNCIONALIDADE: Verificar e oferecer produtos do histórico
-  const checkAndOfferHistoryItems = async (spreadsheetId) => {
-    try {
-      const purchasedItems = await googleSheetsService.getPurchasedItemsFromHistory(spreadsheetId);
-      if (purchasedItems.length > 0) {
-        setHistoryItems(purchasedItems);
-        setShowLoadHistoryDialog(true);
-      }
-    } catch (error) {
-      console.error("Erro ao verificar produtos do histórico:", error);
-    }
-  };
-
-  const loadDataFromLocalStorage = (userEmail, showDialog = true) => {
+  const loadDataFromLocalStorage = (userEmail) => {
     const localItems = JSON.parse(localStorage.getItem(`items_${userEmail}`) || '[]');
     const localHistorico = JSON.parse(localStorage.getItem(`historico_${userEmail}`) || '[]');
-    
-    // Se há itens salvos e devemos mostrar o dialog, armazenar os itens e mostrar o dialog
-    if (localItems.length > 0 && showDialog && userData.items.length === 0) {
-      setPreviousItems(localItems);
-      setShowLoadPreviousDialog(true);
-      // Carregar apenas o histórico por enquanto
-      setUserData(prev => ({ 
-        ...prev, 
-        items: [], // Não carregar os itens ainda
-        historico: localHistorico,
-        hasGoogleSheets: false
-      }));
-    } else {
-      // Carregar normalmente se não há itens ou se não devemos mostrar o dialog
-      setUserData(prev => ({ 
-        ...prev, 
-        items: localItems, 
-        historico: localHistorico,
-        hasGoogleSheets: false
-      }));
-    }
+    setUserData(prev => ({ ...prev, items: localItems, historico: localHistorico }));
   };
 
   const handleLogout = () => {
     if (user) {
       localStorage.removeItem(`user`);
       localStorage.removeItem(`spreadsheetId_${user.email}`);
-      localStorage.removeItem(`token_${user.email}`);
     }
     googleSheetsService.setAccessToken(null); // Limpa o token de acesso
     setUser(null);
@@ -329,48 +266,6 @@ export const UserDataProvider = ({ children }) => {
     }
   };
 
-  const editItem = async (itemId, itemData) => {
-    if (!userData.spreadsheetId || !user) {
-      console.error("Ação não permitida: ID da planilha ou usuário não encontrado.");
-      return false;
-    }
-
-    const itemIndex = userData.items.findIndex(i => i.id === itemId);
-    if (itemIndex === -1) {
-      console.error("Item não encontrado para edição.");
-      return false;
-    }
-
-    const updatedItems = [...userData.items];
-    const updatedItem = {
-      ...updatedItems[itemIndex],
-      ...itemData,
-      preco: parseFloat(itemData.preco?.toString().replace(',', '.')) || 0,
-    };
-    updatedItems[itemIndex] = updatedItem;
-
-    setUserData(prev => ({ ...prev, items: updatedItems }));
-    localStorage.setItem(`items_${user.email}`, JSON.stringify(updatedItems));
-
-    try {
-      await googleSheetsService.editItemInSheet(
-        userData.spreadsheetId,
-        itemIndex + 2, // rowIndex é base 1 e temos um cabeçalho
-        updatedItem
-      );
-      return true;
-    } catch (error) {
-      console.error("Erro ao editar item no Google Sheets:", error);
-      
-      // Reverte a edição local em caso de falha na API
-      const revertedItems = [...userData.items];
-      setUserData(prev => ({ ...prev, items: revertedItems }));
-      localStorage.setItem(`items_${user.email}`, JSON.stringify(revertedItems));
-      
-      return false;
-    }
-  };
-
   const finalizePurchase = async () => {
     if (!userData.spreadsheetId || !user) {
       console.error("Ação não permitida: ID da planilha ou usuário não encontrado.");
@@ -407,49 +302,6 @@ export const UserDataProvider = ({ children }) => {
     }
   };
 
-  // Funções para lidar com o dialog de produtos anteriores
-  const handleLoadPreviousItems = () => {
-    setUserData(prev => ({ ...prev, items: previousItems }));
-    setShowLoadPreviousDialog(false);
-    setPreviousItems([]);
-  };
-
-  const handleSkipPreviousItems = () => {
-    setShowLoadPreviousDialog(false);
-    setPreviousItems([]);
-  };
-
-  // NOVA FUNCIONALIDADE: Funções para lidar com o dialog de produtos do histórico
-  const handleLoadHistoryItems = async (selectedItems) => {
-    if (!userData.spreadsheetId || !user) {
-      console.error("Ação não permitida: ID da planilha ou usuário não encontrado.");
-      setShowLoadHistoryDialog(false);
-      return;
-    }
-
-    try {
-      // Adicionar os itens selecionados à planilha
-      const success = await googleSheetsService.addHistoryItemsToList(userData.spreadsheetId, selectedItems);
-      
-      if (success) {
-        // Atualizar o estado local
-        const updatedItems = [...userData.items, ...selectedItems];
-        setUserData(prev => ({ ...prev, items: updatedItems }));
-        localStorage.setItem(`items_${user.email}`, JSON.stringify(updatedItems));
-      }
-    } catch (error) {
-      console.error("Erro ao carregar produtos do histórico:", error);
-    }
-
-    setShowLoadHistoryDialog(false);
-    setHistoryItems([]);
-  };
-
-  const handleSkipHistoryItems = () => {
-    setShowLoadHistoryDialog(false);
-    setHistoryItems([]);
-  };
-
   const value = {
     user,
     userData,
@@ -460,18 +312,7 @@ export const UserDataProvider = ({ children }) => {
     toggleItemStatus,
     removeItem,
     addItem,
-    editItem,
     finalizePurchase,
-    // Funcionalidades para produtos anteriores
-    showLoadPreviousDialog,
-    previousItems,
-    handleLoadPreviousItems,
-    handleSkipPreviousItems,
-    // NOVA FUNCIONALIDADE: Funcionalidades para produtos do histórico
-    showLoadHistoryDialog,
-    historyItems,
-    handleLoadHistoryItems,
-    handleSkipHistoryItems,
   };
 
   return (
@@ -480,4 +321,3 @@ export const UserDataProvider = ({ children }) => {
     </UserDataContext.Provider>
   );
 };
-
