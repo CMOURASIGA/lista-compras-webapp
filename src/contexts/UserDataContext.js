@@ -61,19 +61,16 @@ export const UserDataProvider = ({ children }) => {
       // 1. Definir o token de acesso para uso nas APIs
       googleSheetsService.setAccessToken(tokenResponse.access_token);
       
-      // 2. Salvar token no localStorage para persistência
-      localStorage.setItem(`token_${tokenResponse.access_token}`, tokenResponse.access_token);
-
-      // 3. Buscar informações do usuário do Google
+      // 2. Buscar informações do usuário primeiro para obter o email
       const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
       });
       if (!userInfoRes.ok) throw new Error('Falha ao buscar dados do usuário.');
       
       const userInfo = await userInfoRes.json();
-      localStorage.setItem('user', JSON.stringify(userInfo));
       
-      // Salvar token com email do usuário como chave
+      // 3. Salvar dados do usuário e token no localStorage
+      localStorage.setItem('user', JSON.stringify(userInfo));
       localStorage.setItem(`token_${userInfo.email}`, tokenResponse.access_token);
       
       setUser(userInfo);
