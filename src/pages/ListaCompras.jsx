@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
-import { useTestUserData } from '../contexts/TestUserDataContext';
+import { formatCurrency } from '../utils/formatters';
 
 const ListaCompras = () => {
-  // Tentar usar contexto de teste primeiro, depois o normal
-  let contextData;
-  try {
-    contextData = useTestUserData();
-  } catch {
-    contextData = useUserData();
-  }
-
-  const { userData, getStatistics, toggleItemStatus, removeItem, editItem } = contextData;
+  const { userData, toggleItemStatus, removeItem, editItem, getStatistics } = useUserData();
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const stats = getStatistics();

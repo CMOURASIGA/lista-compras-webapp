@@ -21,8 +21,6 @@ export const UserDataProvider = ({ children }) => {
   });
   const [showLoadPreviousDialog, setShowLoadPreviousDialog] = useState(false);
   const [previousItems, setPreviousItems] = useState([]);
-  const [showCreatePreListDialog, setShowCreatePreListDialog] = useState(false);
-  const [suggestedPreListItems, setSuggestedPreListItems] = useState([]);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -106,9 +104,7 @@ export const UserDataProvider = ({ children }) => {
       console.error("Erro ao inicializar a planilha:", error);
       setUserData(prev => ({ ...prev, hasGoogleSheets: false }));
       if (userEmail) {
-        // Carregar dados locais e verificar se há histórico para sugerir pré-lista
         loadDataFromLocalStorage(userEmail);
-        checkAndSuggestPreList(userEmail);
       }
     }
   };
@@ -401,66 +397,6 @@ export const UserDataProvider = ({ children }) => {
     setPreviousItems([]);
   };
 
-  // Função para verificar histórico e sugerir pré-lista
-  const checkAndSuggestPreList = (userEmail) => {
-    const localHistorico = JSON.parse(localStorage.getItem(`historico_${userEmail}`) || '[]');
-    
-    if (localHistorico.length > 0) {
-      // Extrair itens únicos mais comprados do histórico
-      const itemFrequency = {};
-      localHistorico.forEach(historyItem => {
-        const itemName = historyItem.item;
-        if (itemFrequency[itemName]) {
-          itemFrequency[itemName].count++;
-          itemFrequency[itemName].lastPrice = historyItem.preco;
-          itemFrequency[itemName].categoria = historyItem.categoria;
-        } else {
-          itemFrequency[itemName] = {
-            count: 1,
-            lastPrice: historyItem.preco,
-            categoria: historyItem.categoria,
-            nome: itemName
-          };
-        }
-      });
-
-      // Ordenar por frequência e pegar os top 10
-      const sortedItems = Object.values(itemFrequency)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10)
-        .map(item => ({
-          id: `prelist_${new Date().getTime()}_${Math.random()}`,
-          nome: item.nome,
-          quantidade: 1,
-          categoria: item.categoria || '',
-          preco: item.lastPrice || 0,
-          status: 'pendente',
-          dataCriacao: new Date().toLocaleDateString('pt-BR'),
-          dataCompra: ''
-        }));
-
-      if (sortedItems.length > 0) {
-        setSuggestedPreListItems(sortedItems);
-        setShowCreatePreListDialog(true);
-      }
-    }
-  };
-
-  // Funções para lidar com o dialog de pré-lista
-  const handleCreatePreList = () => {
-    setUserData(prev => ({ ...prev, items: suggestedPreListItems }));
-    if (user) {
-      localStorage.setItem(`items_${user.email}`, JSON.stringify(suggestedPreListItems));
-    }
-    setShowCreatePreListDialog(false);
-    setSuggestedPreListItems([]);
-  };
-
-  const handleSkipPreList = () => {
-    setShowCreatePreListDialog(false);
-    setSuggestedPreListItems([]);
-  };
-
   const value = {
     user,
     userData,
@@ -473,16 +409,11 @@ export const UserDataProvider = ({ children }) => {
     addItem,
     editItem,
     finalizePurchase,
-    // Funcionalidades para produtos anteriores
+    // Novas funcionalidades para produtos anteriores
     showLoadPreviousDialog,
     previousItems,
     handleLoadPreviousItems,
     handleSkipPreviousItems,
-    // Novas funcionalidades para pré-lista
-    showCreatePreListDialog,
-    suggestedPreListItems,
-    handleCreatePreList,
-    handleSkipPreList,
   };
 
   return (

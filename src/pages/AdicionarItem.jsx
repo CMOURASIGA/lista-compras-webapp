@@ -1,18 +1,9 @@
 import React, { useState } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
-import { useTestUserData } from '../contexts/TestUserDataContext';
 import PriceInput from '../components/PriceInput';
 
 const AdicionarItem = () => {
-  // Tentar usar contexto de teste primeiro, depois o normal
-  let contextData;
-  try {
-    contextData = useTestUserData();
-  } catch {
-    contextData = useUserData();
-  }
-
-  const { addItem } = contextData;
+  const { addItem } = useUserData();
   const [formData, setFormData] = useState({
     nome: '',
     quantidade: '1',
