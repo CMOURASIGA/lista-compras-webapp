@@ -1,47 +1,24 @@
-# Lista de Problemas Identificados e Correções
+# Lista de Tarefas - Correção da Aplicação de Lista de Compras
 
-## Problemas Relatados pelo Usuário:
+## Problemas Identificados:
+- [x] Analisar código atual do UserDataContext
+- [x] Analisar código atual do googleSheetsService
+- [x] Implementar funcionalidade para perguntar sobre carregar últimos produtos
+- [x] Corrigir fluxo de carregamento de dados após login
+- [x] Adicionar modal/dialog para confirmar carregamento de produtos anteriores
+- [x] Testar funcionalidade localmente
+- [x] Entregar aplicação corrigida
 
-### 1. ✅ Criação dupla de planilhas
-- **Problema**: Sistema está criando duas planilhas no Google Drive
-- **Causa identificada**: Condição de corrida entre `handleLogin` e o `useEffect` em `home.js`
-- **Correção aplicada**: Removido useEffect duplicado em home.js
-- **Status**: CORRIGIDO
+## Soluções Implementadas:
+1. ✅ Adicionado estado para controlar se deve mostrar o dialog de carregamento
+2. ✅ Criado componente LoadPreviousItemsDialog para perguntar sobre carregar produtos anteriores
+3. ✅ Modificado o fluxo de login para verificar se existem produtos anteriores
+4. ✅ Implementado lógica para carregar produtos da última compra quando solicitado
 
-### 2. ✅ Falta de funcionalidade de edição de itens
-- **Problema**: Usuário não consegue editar itens após adicioná-los
-- **Causa**: Funcionalidade não implementada
-- **Correção aplicada**: 
-  - Adicionada função `editItemInSheet` no googleSheetsService
-  - Adicionada função `editItem` no UserDataContext
-  - Modificado componente ListaCompras para incluir modo de edição
-- **Status**: IMPLEMENTADO
-
-### 3. ✅ Histórico não aparece no webapp
-- **Problema**: Aba histórico não mostra dados mesmo com planilha preenchida
-- **Causa**: Componente Historico.jsx estava lendo de localStorage incorreto
-- **Correção aplicada**: Modificado para usar `useUserData` e acessar `userData.historico`
-- **Status**: CORRIGIDO
-
-### 4. ✅ Itens do histórico não carregam após login
-- **Problema**: Após logout/login, itens do histórico não aparecem para consideração
-- **Causa**: Dados do histórico não eram carregados corretamente após login
-- **Correção aplicada**: 
-  - Melhorado carregamento de dados do localStorage no useEffect inicial
-  - Adicionado persistência de token para reconexão automática
-  - Corrigido carregamento de dados locais para usuários já logados
-- **Status**: CORRIGIDO
-
-## Observações Técnicas:
-
-### Teste Local
-- Aplicação executa sem erros críticos
-- Necessário configurar variáveis de ambiente (.env) para funcionalidade completa do Google OAuth
-- Interface carrega corretamente com todas as funcionalidades implementadas
-
-### Funcionalidades Implementadas:
-1. **Edição de itens**: Botão de editar (✏️) em cada item da lista
-2. **Histórico funcional**: Dados carregados corretamente do Google Sheets
-3. **Prevenção de planilhas duplicadas**: Lógica de inicialização otimizada
-4. **Persistência melhorada**: Dados locais carregados automaticamente
+## Funcionalidades Testadas:
+- ✅ Dialog aparece quando há produtos salvos no localStorage
+- ✅ Opção "Carregar Lista" carrega os produtos anteriores corretamente
+- ✅ Opção "Começar Nova Lista" inicia com lista vazia
+- ✅ Contagem de itens é exibida corretamente no dialog
+- ✅ Interface responsiva e bem estilizada
 

@@ -5,11 +5,22 @@ import ListaCompras from './ListaCompras';
 import AdicionarItem from './AdicionarItem';
 import Carrinho from './Carrinho';
 import Historico from './Historico';
+import LoadPreviousItemsDialog from '../components/LoadPreviousItemsDialog';
 import { useUserData } from '../contexts/UserDataContext';
 
 const Home = () => {
   const [currentPage, setCurrentPage] = useState('lista');
-  const { user, userData, handleLogin, handleLogout, initializeSheetAndLoadData } = useUserData();
+  const { 
+    user, 
+    userData, 
+    handleLogin, 
+    handleLogout, 
+    initializeSheetAndLoadData,
+    showLoadPreviousDialog,
+    previousItems,
+    handleLoadPreviousItems,
+    handleSkipPreviousItems
+  } = useUserData();
 
   useEffect(() => {
     // Removido para evitar criação dupla de planilhas
@@ -125,6 +136,14 @@ const Home = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {renderCurrentPage()}
       </main>
+
+      {/* Dialog para carregar produtos anteriores */}
+      <LoadPreviousItemsDialog
+        isOpen={showLoadPreviousDialog}
+        onConfirm={handleLoadPreviousItems}
+        onCancel={handleSkipPreviousItems}
+        itemCount={previousItems.length}
+      />
     </div>
   );
 };

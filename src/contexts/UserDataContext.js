@@ -19,6 +19,8 @@ export const UserDataProvider = ({ children }) => {
     isLoading: true,
     spreadsheetId: null
   });
+  const [showLoadPreviousDialog, setShowLoadPreviousDialog] = useState(false);
+  const [previousItems, setPreviousItems] = useState([]);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -138,15 +140,30 @@ export const UserDataProvider = ({ children }) => {
     }
   };
 
-  const loadDataFromLocalStorage = (userEmail) => {
+  const loadDataFromLocalStorage = (userEmail, showDialog = true) => {
     const localItems = JSON.parse(localStorage.getItem(`items_${userEmail}`) || '[]');
     const localHistorico = JSON.parse(localStorage.getItem(`historico_${userEmail}`) || '[]');
-    setUserData(prev => ({ 
-      ...prev, 
-      items: localItems, 
-      historico: localHistorico,
-      hasGoogleSheets: false // Indica que está usando dados locais
-    }));
+    
+    // Se há itens salvos e devemos mostrar o dialog, armazenar os itens e mostrar o dialog
+    if (localItems.length > 0 && showDialog && userData.items.length === 0) {
+      setPreviousItems(localItems);
+      setShowLoadPreviousDialog(true);
+      // Carregar apenas o histórico por enquanto
+      setUserData(prev => ({ 
+        ...prev, 
+        items: [], // Não carregar os itens ainda
+        historico: localHistorico,
+        hasGoogleSheets: false
+      }));
+    } else {
+      // Carregar normalmente se não há itens ou se não devemos mostrar o dialog
+      setUserData(prev => ({ 
+        ...prev, 
+        items: localItems, 
+        historico: localHistorico,
+        hasGoogleSheets: false
+      }));
+    }
   };
 
   const handleLogout = () => {
@@ -368,6 +385,18 @@ export const UserDataProvider = ({ children }) => {
     }
   };
 
+  // Funções para lidar com o dialog de produtos anteriores
+  const handleLoadPreviousItems = () => {
+    setUserData(prev => ({ ...prev, items: previousItems }));
+    setShowLoadPreviousDialog(false);
+    setPreviousItems([]);
+  };
+
+  const handleSkipPreviousItems = () => {
+    setShowLoadPreviousDialog(false);
+    setPreviousItems([]);
+  };
+
   const value = {
     user,
     userData,
@@ -380,6 +409,11 @@ export const UserDataProvider = ({ children }) => {
     addItem,
     editItem,
     finalizePurchase,
+    // Novas funcionalidades para produtos anteriores
+    showLoadPreviousDialog,
+    previousItems,
+    handleLoadPreviousItems,
+    handleSkipPreviousItems,
   };
 
   return (
