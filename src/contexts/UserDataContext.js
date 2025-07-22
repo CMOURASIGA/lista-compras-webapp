@@ -21,6 +21,10 @@ export const UserDataProvider = ({ children }) => {
   });
   const [showLoadPreviousDialog, setShowLoadPreviousDialog] = useState(false);
   const [previousItems, setPreviousItems] = useState([]);
+  
+  // NOVA FUNCIONALIDADE: Estados para carregar produtos do histórico
+  const [showLoadHistoryDialog, setShowLoadHistoryDialog] = useState(false);
+  const [historyItems, setHistoryItems] = useState([]);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -134,9 +138,27 @@ export const UserDataProvider = ({ children }) => {
         localStorage.setItem(`historico_${user.email}`, JSON.stringify(historico));
       }
 
+      // NOVA FUNCIONALIDADE: Verificar se há produtos no histórico para oferecer carregamento
+      if (historico.length > 0 && items.length === 0) {
+        await checkAndOfferHistoryItems(spreadsheetId);
+      }
+
     } catch (error) {
       console.error("Erro ao carregar dados do Google Sheets:", error);
       if (user) loadDataFromLocalStorage(user.email);
+    }
+  };
+
+  // NOVA FUNCIONALIDADE: Verificar e oferecer produtos do histórico
+  const checkAndOfferHistoryItems = async (spreadsheetId) => {
+    try {
+      const purchasedItems = await googleSheetsService.getPurchasedItemsFromHistory(spreadsheetId);
+      if (purchasedItems.length > 0) {
+        setHistoryItems(purchasedItems);
+        setShowLoadHistoryDialog(true);
+      }
+    } catch (error) {
+      console.error("Erro ao verificar produtos do histórico:", error);
     }
   };
 
@@ -397,6 +419,37 @@ export const UserDataProvider = ({ children }) => {
     setPreviousItems([]);
   };
 
+  // NOVA FUNCIONALIDADE: Funções para lidar com o dialog de produtos do histórico
+  const handleLoadHistoryItems = async (selectedItems) => {
+    if (!userData.spreadsheetId || !user) {
+      console.error("Ação não permitida: ID da planilha ou usuário não encontrado.");
+      setShowLoadHistoryDialog(false);
+      return;
+    }
+
+    try {
+      // Adicionar os itens selecionados à planilha
+      const success = await googleSheetsService.addHistoryItemsToList(userData.spreadsheetId, selectedItems);
+      
+      if (success) {
+        // Atualizar o estado local
+        const updatedItems = [...userData.items, ...selectedItems];
+        setUserData(prev => ({ ...prev, items: updatedItems }));
+        localStorage.setItem(`items_${user.email}`, JSON.stringify(updatedItems));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar produtos do histórico:", error);
+    }
+
+    setShowLoadHistoryDialog(false);
+    setHistoryItems([]);
+  };
+
+  const handleSkipHistoryItems = () => {
+    setShowLoadHistoryDialog(false);
+    setHistoryItems([]);
+  };
+
   const value = {
     user,
     userData,
@@ -409,11 +462,16 @@ export const UserDataProvider = ({ children }) => {
     addItem,
     editItem,
     finalizePurchase,
-    // Novas funcionalidades para produtos anteriores
+    // Funcionalidades para produtos anteriores
     showLoadPreviousDialog,
     previousItems,
     handleLoadPreviousItems,
     handleSkipPreviousItems,
+    // NOVA FUNCIONALIDADE: Funcionalidades para produtos do histórico
+    showLoadHistoryDialog,
+    historyItems,
+    handleLoadHistoryItems,
+    handleSkipHistoryItems,
   };
 
   return (
@@ -422,3 +480,4 @@ export const UserDataProvider = ({ children }) => {
     </UserDataContext.Provider>
   );
 };
+

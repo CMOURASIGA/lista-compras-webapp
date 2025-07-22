@@ -1,3 +1,4 @@
+// Versão aprimorada do googleSheetsService.js com funcionalidade de carregar produtos do histórico
 
 // Variável global para armazenar o token de acesso
 let accessToken = null;
@@ -202,10 +203,81 @@ export const readSheet = async (spreadsheetId, range) => {
 };
 
 /**
- * Adiciona um novo item à aba "Itens".
+ * NOVA FUNCIONALIDADE: Busca produtos únicos do histórico que podem ser re-adicionados à lista
  * @param {string} spreadsheetId - O ID da planilha.
- * @param {Object} item - O item a ser adicionado.
+ * @returns {Promise<Array>} - Lista de produtos únicos do histórico.
  */
+export const getPurchasedItemsFromHistory = async (spreadsheetId) => {
+  try {
+    const historicoResult = await readSheet(spreadsheetId, "Historico!A2:H1000");
+    const historicoData = (historicoResult.values || []).map(row => ({
+      data: row[0] || '',
+      item: row[1] || '',
+      quantidade: parseInt(row[2]) || 1,
+      preco: parseFloat(row[3]) || 0,
+      categoria: row[4] || '',
+      loja: row[5] || 'Não informado',
+      total: parseFloat(row[6]) || 0,
+      id: row[7] || ''
+    }));
+
+    // Agrupar por nome do item para obter produtos únicos
+    const uniqueItems = {};
+    historicoData.forEach(item => {
+      const itemName = item.item.toLowerCase().trim();
+      if (!uniqueItems[itemName] || new Date(item.data.split('/').reverse().join('-')) > new Date(uniqueItems[itemName].data.split('/').reverse().join('-'))) {
+        uniqueItems[itemName] = {
+          id: `history_${new Date().getTime()}_${Math.random().toString(36).substr(2, 9)}`,
+          nome: item.item,
+          quantidade: item.quantidade,
+          categoria: item.categoria,
+          preco: item.preco,
+          status: 'pendente', // Resetar status para pendente
+          dataCriacao: new Date().toLocaleDateString('pt-BR'),
+          dataCompra: '',
+          originalHistoryId: item.id,
+          lastPurchaseDate: item.data
+        };
+      }
+    });
+
+    return Object.values(uniqueItems);
+  } catch (error) {
+    console.error("Erro ao buscar produtos do histórico:", error);
+    return [];
+  }
+};
+
+/**
+ * NOVA FUNCIONALIDADE: Adiciona produtos do histórico de volta à lista de itens
+ * @param {string} spreadsheetId - O ID da planilha.
+ * @param {Array} selectedItems - Lista de produtos selecionados do histórico.
+ * @returns {Promise<boolean>} - Sucesso da operação.
+ */
+export const addHistoryItemsToList = async (spreadsheetId, selectedItems) => {
+  try {
+    for (const item of selectedItems) {
+      const itemToAdd = {
+        id: item.id,
+        nome: item.nome,
+        quantidade: item.quantidade,
+        categoria: item.categoria,
+        preco: item.preco,
+        status: 'pendente',
+        dataCriacao: new Date().toLocaleDateString('pt-BR'),
+        dataCompra: ''
+      };
+      
+      await addItemToSheet(spreadsheetId, itemToAdd);
+    }
+    return true;
+  } catch (error) {
+    console.error("Erro ao adicionar produtos do histórico à lista:", error);
+    return false;
+  }
+};
+
+// Manter todas as outras funções existentes...
 export const addItemToSheet = async (spreadsheetId, item) => {
   const headers = getAuthHeaders();
   const range = 'Itens!A:H';
@@ -224,13 +296,6 @@ export const addItemToSheet = async (spreadsheetId, item) => {
   );
 };
 
-/**
- * Atualiza o status e a data de compra de um item na planilha.
- * @param {string} spreadsheetId - O ID da planilha.
- * @param {number} rowIndex - O índice da linha a ser atualizada.
- * @param {string} status - O novo status.
- * @param {string} dataCompra - A nova data de compra.
- */
 export const updateItemStatusInSheet = async (spreadsheetId, rowIndex, status, dataCompra) => {
   const headers = getAuthHeaders();
   const sheetMetadata = await getSheetMetadata(spreadsheetId);
@@ -264,11 +329,6 @@ export const updateItemStatusInSheet = async (spreadsheetId, rowIndex, status, d
   );
 };
 
-/**
- * Move itens da aba "Itens" para a aba "Historico".
- * @param {string} spreadsheetId - O ID da planilha.
- * @param {Array} itemsToMove - A lista de itens a serem movidos.
- */
 export const moveItemsToHistory = async (spreadsheetId, itemsToMove) => {
   const headers = getAuthHeaders();
   const sheetMetadata = await getSheetMetadata(spreadsheetId);
@@ -323,12 +383,6 @@ export const moveItemsToHistory = async (spreadsheetId, itemsToMove) => {
   }
 };
 
-/**
- * Edita um item existente na aba "Itens".
- * @param {string} spreadsheetId - O ID da planilha.
- * @param {number} rowIndex - O índice da linha a ser editada (base 1).
- * @param {Object} item - O item com os novos dados.
- */
 export const editItemInSheet = async (spreadsheetId, rowIndex, item) => {
   const headers = getAuthHeaders();
   const sheetMetadata = await getSheetMetadata(spreadsheetId);
@@ -368,11 +422,6 @@ export const editItemInSheet = async (spreadsheetId, rowIndex, item) => {
   );
 };
 
-/**
- * Limpa um intervalo de células na planilha.
- * @param {string} spreadsheetId - O ID da planilha.
- * @param {string} range - O intervalo a ser limpo (ex: 'Itens!A2:H2').
- */
 export const clearSheetRange = async (spreadsheetId, range) => {
   const headers = getAuthHeaders();
   await fetch(
@@ -383,3 +432,4 @@ export const clearSheetRange = async (spreadsheetId, range) => {
     }
   );
 };
+

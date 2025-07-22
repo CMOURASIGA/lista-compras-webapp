@@ -6,6 +6,7 @@ import AdicionarItem from './AdicionarItem';
 import Carrinho from './Carrinho';
 import Historico from './Historico';
 import LoadPreviousItemsDialog from '../components/LoadPreviousItemsDialog';
+import LoadHistoryItemsDialog from '../components/LoadHistoryItemsDialog'; // NOVO COMPONENTE
 import { useUserData } from '../contexts/UserDataContext';
 
 const Home = () => {
@@ -19,7 +20,12 @@ const Home = () => {
     showLoadPreviousDialog,
     previousItems,
     handleLoadPreviousItems,
-    handleSkipPreviousItems
+    handleSkipPreviousItems,
+    // NOVA FUNCIONALIDADE: Estados e funções para produtos do histórico
+    showLoadHistoryDialog,
+    historyItems,
+    handleLoadHistoryItems,
+    handleSkipHistoryItems
   } = useUserData();
 
   useEffect(() => {
@@ -91,6 +97,7 @@ const Home = () => {
                 <li>• Salvar suas listas na nuvem</li>
                 <li>• Acessar de qualquer dispositivo</li>
                 <li>• Acompanhar seu histórico de compras</li>
+                <li>• Reutilizar produtos comprados anteriormente</li>
               </ul>
             </div>
           </div>
@@ -144,8 +151,17 @@ const Home = () => {
         onCancel={handleSkipPreviousItems}
         itemCount={previousItems.length}
       />
+
+      {/* NOVO DIALOG: Dialog para carregar produtos do histórico */}
+      <LoadHistoryItemsDialog
+        isOpen={showLoadHistoryDialog}
+        onConfirm={handleLoadHistoryItems}
+        onCancel={handleSkipHistoryItems}
+        historyItems={historyItems}
+      />
     </div>
   );
 };
 
 export default Home;
+
