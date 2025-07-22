@@ -2,98 +2,81 @@ import React, { useState, useEffect } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
 
 const Historico = () => {
-  const { userData, addItem } = useUserData();
-  const [historico, setHistorico] = useState([]);
+  const { userData } = useUserData();
   const [estatisticas, setEstatisticas] = useState({});
   const [loading, setLoading] = useState(true);
   const [filtroMes, setFiltroMes] = useState('todos');
 
   useEffect(() => {
-    const historicoSalvo = JSON.parse(localStorage.getItem('purchaseHistory')) || [];
-
-    const totalGasto = historicoSalvo.reduce((soma, compra) => soma + compra.valorTotal, 0);
-    const itensComprados = historicoSalvo.reduce((soma, compra) => {
-      return soma + compra.itens.reduce((qtd, item) => qtd + item.quantidade, 0);
-    }, 0);
-
-    const categorias = {};
-    historicoSalvo.forEach(compra => {
-      compra.itens.forEach(item => {
-        categorias[item.categoria] = (categorias[item.categoria] || 0) + item.quantidade;
-      });
-    });
-
-    const categoriaFavorita = Object.entries(categorias).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
-
-    setHistorico(historicoSalvo);
-    setEstatisticas({
-      totalGasto,
-      comprasRealizadas: historicoSalvo.length,
-      itensComprados,
-      gastoMedio: historicoSalvo.length > 0 ? totalGasto / historicoSalvo.length : 0,
-      categoriaFavorita
-    });
-
-    setLoading(false);
-  }, []);
-  const formatarData = (data) => {
-    return new Date(data).toLocaleDateString("pt-BR");
-  };
-
-  const handleRecomprarItem = async (item) => {
-    const itemExistente = userData.items.find(
-      (i) => i.nome.toLowerCase() === item.nome.toLowerCase()
-    );
-
-    if (itemExistente) {
-      alert(`O item "${item.nome}" já está na sua lista de compras.`);
-      return;
-    }
-
-    const newItem = {
-      nome: item.nome,
-      quantidade: item.quantidade,
-      categoria: item.categoria,
-      preco: item.preco,
-    };
-
-    const success = await addItem(newItem);
-    if (success) {
-      alert(`"${item.nome}" adicionado à sua lista de compras!`);
-    } else {
-      alert(`Erro ao adicionar "${item.nome}" à lista.`);
-    }
-  };
-
-  const handleRecomprarCompra = async (compra) => {
-    for (const item of compra.itens) {
-      const itemExistente = userData.items.find(
-        (i) => i.nome.toLowerCase() === item.nome.toLowerCase()
-      );
-
-      if (!itemExistente) {
-        const newItem = {
-          nome: item.nome,
+    if (userData.historico) {
+      // Converter dados do histórico para o formato esperado
+      const historicoFormatado = userData.historico.map(item => ({
+        data: item.data,
+        valorTotal: item.total || (item.preco * item.quantidade),
+        itens: [{
+          nome: item.item,
           quantidade: item.quantidade,
           categoria: item.categoria,
-          preco: item.preco,
-        };
-        await addItem(newItem);
-      }
+          preco: item.preco
+        }]
+      }));
+
+      const totalGasto = historicoFormatado.reduce((soma, compra) => soma + compra.valorTotal, 0);
+      const itensComprados = historicoFormatado.reduce((soma, compra) => {
+        return soma + compra.itens.reduce((qtd, item) => qtd + item.quantidade, 0);
+      }, 0);
+
+      const categorias = {};
+      historicoFormatado.forEach(compra => {
+        compra.itens.forEach(item => {
+          categorias[item.categoria] = (categorias[item.categoria] || 0) + item.quantidade;
+        });
+      });
+
+      const categoriaFavorita = Object.entries(categorias).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+
+      setEstatisticas({
+        totalGasto,
+        comprasRealizadas: historicoFormatado.length,
+        itensComprados,
+        gastoMedio: historicoFormatado.length > 0 ? totalGasto / historicoFormatado.length : 0,
+        categoriaFavorita
+      });
+
+      setLoading(false);
     }
-    alert(`Itens da compra de ${formatarData(compra.data)} adicionados à sua lista (duplicados foram ignorados)!`);
+  }, [userData.historico]);
+
+  const formatarData = (data) => {
+    // Se a data já está no formato brasileiro, retorna como está
+    if (typeof data === 'string' && data.includes('/')) {
+      return data;
+    }
+    return new Date(data).toLocaleDateString('pt-BR');
   };
 
+  // Converter dados do histórico para o formato esperado para exibição
+  const historicoFormatado = userData.historico ? userData.historico.map(item => ({
+    data: item.data,
+    valorTotal: item.total || (item.preco * item.quantidade),
+    itens: [{
+      nome: item.item,
+      quantidade: item.quantidade,
+      categoria: item.categoria,
+      preco: item.preco
+    }]
+  })) : [];
+
   const historicoFiltrado = filtroMes === 'todos'
-    ? historico
-    : historico.filter(compra => {
-        const dataCompra = new Date(compra.data);
+    ? historicoFormatado
+    : historicoFormatado.filter(compra => {
+        const dataCompra = new Date(compra.data.split('/').reverse().join('-')); // Converte DD/MM/YYYY para YYYY-MM-DD
         const mesAtual = new Date();
         return dataCompra.getMonth() === mesAtual.getMonth() &&
                dataCompra.getFullYear() === mesAtual.getFullYear();
       });
 
-  if (loading) {
+  if (loading || userData.isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -163,13 +146,6 @@ const Historico = () => {
                 <div className="text-lg font-bold text-green-600">
                   R$ {compra.valorTotal.toFixed(2)}
                 </div>
-                <button
-                  onClick={() => handleRecomprarCompra(compra)}
-                  className="ml-2 text-purple-500 hover:text-purple-700 p-1 rounded-full hover:bg-purple-50 transition-colors"
-                  title="Recomprar todos os itens desta compra"
-                >
-                  🛒
-                </button>
               </div>
               
               <div className="space-y-2">
@@ -181,17 +157,8 @@ const Historico = () => {
                         ({item.quantidade}x • {item.categoria})
                       </span>
                     </div>
-                    <div className="flex items-center">
-                      <div className="text-sm font-medium mr-2">
-                        R$ {(item.preco * item.quantidade).toFixed(2)}
-                      </div>
-                      <button
-                        onClick={() => handleRecomprarItem(item)}
-                        className="text-blue-500 hover:text-blue-700 p-1 rounded-full hover:bg-blue-50 transition-colors"
-                        title="Recomprar item"
-                      >
-                        ➕
-                      </button>
+                    <div className="text-sm font-medium">
+                      R$ {(item.preco * item.quantidade).toFixed(2)}
                     </div>
                   </div>
                 ))}
@@ -212,7 +179,7 @@ const Historico = () => {
         <div className="bg-white rounded-lg shadow-md p-4 mt-6">
           <h3 className="text-lg font-semibold mb-4 text-gray-800">📈 Gastos por Categoria</h3>
           <div className="space-y-3">
-            {['Grãos', 'Laticínios', 'Frutas', 'Carnes', 'Padaria'].map((categoria) => {
+            {['Grãos', 'Laticínios', 'Frutas', 'Carnes', 'Padaria', 'Limpeza', 'Outros'].map((categoria) => {
               const gastoCategoria = historicoFiltrado.reduce((total, compra) => {
                 return total + compra.itens
                   .filter(item => item.categoria === categoria)
