@@ -70,30 +70,22 @@ export const UserDataProvider = ({ children }) => {
 
   const initializeSheetAndLoadData = async (userEmail) => {
     try {
-      const sheetName = 'Lista de Compras de Mercado';
-      let sheetId = googleSheetsService.getUserSpreadsheetId(userEmail);
-
-      if (!sheetId) {
-        sheetId = await googleSheetsService.findSpreadsheetByName(sheetName);
-        if (sheetId) {
-          localStorage.setItem(`spreadsheetId_${userEmail}`, sheetId);
-        }
-      }
-
-      if (!sheetId) {
-        sheetId = await googleSheetsService.createUserSpreadsheet(userEmail);
-      }
+      // Simplificado para usar a nova função atômica
+      const sheetId = await googleSheetsService.findOrCreateSpreadsheet(userEmail);
       
       if (!sheetId) {
         throw new Error("Não foi possível obter ou criar uma planilha.");
       }
 
-      setUserData(prev => ({ ...prev, spreadsheetId: sheetId }));
+      setUserData(prev => ({ ...prev, spreadsheetId: sheetId, hasGoogleSheets: true }));
       await loadDataFromSheet(sheetId);
 
     } catch (error) {
       console.error("Erro ao inicializar a planilha:", error);
-      loadDataFromLocalStorage(userEmail);
+      setUserData(prev => ({ ...prev, hasGoogleSheets: false }));
+      if (userEmail) {
+        loadDataFromLocalStorage(userEmail);
+      }
     }
   };
 
@@ -176,14 +168,16 @@ export const UserDataProvider = ({ children }) => {
     return stats;
   };
 
-  const markItemAsBought = async (itemId) => {
+  const toggleItemStatus = async (itemId) => {
     const itemIndex = userData.items.findIndex(i => i.id === itemId);
     if (itemIndex === -1) return;
 
     const updatedItems = [...userData.items];
     const item = updatedItems[itemIndex];
-    item.status = 'comprado';
-    item.dataCompra = new Date().toLocaleDateString('pt-BR');
+    
+    const isBought = item.status === 'comprado';
+    item.status = isBought ? 'pendente' : 'comprado';
+    item.dataCompra = isBought ? '' : new Date().toLocaleDateString('pt-BR');
 
     setUserData(prev => ({ ...prev, items: updatedItems }));
     if (user) {
@@ -191,24 +185,23 @@ export const UserDataProvider = ({ children }) => {
     }
 
     if (userData.spreadsheetId) {
-      // A linha na planilha é o índice do array + 2 (cabeçalho e 0-based vs 1-based)
-      const rowIndexInSheet = itemIndex + 2;
-      
-      // O range agora é F e H, para status e data da compra
-      const range = `Itens!F${rowIndexInSheet}:H${rowIndexInSheet}`;
-      const values = [[item.status, item.dataCriacao, item.dataCompra]];
-
       try {
-        // Usamos a função `updateItemStatusInSheet` que é mais específica
+        // Passando o rowIndex correto (itemIndex + 2)
         await googleSheetsService.updateItemStatusInSheet(
           userData.spreadsheetId,
-          itemId,
+          itemIndex + 2, // rowIndex é base 1 e temos um cabeçalho
           item.status,
           item.dataCompra
         );
       } catch (error) {
-        console.error("Erro ao marcar item como comprado no Google Sheets:", error);
-        // Opcional: reverter a mudança de estado ou notificar o usuário
+        console.error("Erro ao atualizar status do item no Google Sheets:", error);
+        // Reverter a mudança em caso de erro
+        updatedItems[itemIndex].status = isBought ? 'comprado' : 'pendente';
+        updatedItems[itemIndex].dataCompra = isBought ? new Date().toLocaleDateString('pt-BR') : '';
+        setUserData(prev => ({ ...prev, items: updatedItems }));
+        if (user) {
+          localStorage.setItem(`items_${user.email}`, JSON.stringify(updatedItems));
+        }
       }
     }
   };
@@ -279,18 +272,18 @@ export const UserDataProvider = ({ children }) => {
       return false;
     }
 
-    const itemsToMove = userData.items.filter(item => item.status === 'comprado');
-    if (itemsToMove.length === 0) {
+    const itemsToProcess = userData.items.filter(item => item.status === 'comprado');
+    if (itemsToProcess.length === 0) {
       return true; // Nada a fazer
     }
 
     try {
-      // Move os itens na planilha do Google
-      await googleSheetsService.moveItemsToHistory(userData.spreadsheetId, itemsToMove);
+      // 1. Mover para o histórico (como antes)
+      await googleSheetsService.moveItemsToHistory(userData.spreadsheetId, itemsToProcess);
 
-      // Atualiza o estado local
+      // 2. Atualizar o estado local
       const remainingItems = userData.items.filter(item => item.status !== 'comprado');
-      const newHistory = [...userData.historico, ...itemsToMove];
+      const newHistory = [...userData.historico, ...itemsToProcess];
 
       setUserData(prev => ({
         ...prev,
@@ -298,7 +291,7 @@ export const UserDataProvider = ({ children }) => {
         historico: newHistory,
       }));
 
-      // Atualiza o localStorage
+      // 3. Atualizar o localStorage
       localStorage.setItem(`items_${user.email}`, JSON.stringify(remainingItems));
       localStorage.setItem(`historico_${user.email}`, JSON.stringify(newHistory));
 
@@ -316,7 +309,7 @@ export const UserDataProvider = ({ children }) => {
     handleLogout,
     initializeSheetAndLoadData,
     getStatistics,
-    markItemAsBought,
+    toggleItemStatus,
     removeItem,
     addItem,
     finalizePurchase,

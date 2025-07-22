@@ -167,7 +167,7 @@ const Carrinho = () => {
             <div>
               <h3 className="text-lg font-semibold text-gray-800">Finalizar Compra</h3>
               <p className="text-sm text-gray-600">
-                Os itens serão movidos para o histórico e removidos da lista atual
+                Os itens serão adicionados ao seu histórico e a lista será reiniciada para a próxima compra.
               </p>
             </div>
             <div className="text-right">

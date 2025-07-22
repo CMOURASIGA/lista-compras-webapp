@@ -3,14 +3,11 @@ import { useUserData } from '../contexts/UserDataContext';
 import { formatCurrency } from '../utils/formatters';
 
 const ListaCompras = () => {
-  const { userData, markItemAsBought, removeItem, getStatistics } = useUserData();
+  const { userData, toggleItemStatus, removeItem, getStatistics } = useUserData();
   const stats = getStatistics();
 
   const handleToggleComprado = async (itemId) => {
-    const item = userData.items.find(i => i.id === itemId);
-    if (item && item.status === 'pendente') {
-      await markItemAsBought(itemId);
-    }
+    await toggleItemStatus(itemId);
   };
 
   const handleRemoveItem = async (itemId) => {
@@ -106,10 +103,9 @@ const ListaCompras = () => {
                 <div className="flex items-center space-x-4">
                   <button
                     onClick={() => handleToggleComprado(item.id)}
-                    disabled={item.status === 'comprado'}
                     className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
                       item.status === 'comprado'
-                        ? 'bg-green-500 border-green-500 text-white cursor-default'
+                        ? 'bg-green-500 border-green-500 text-white'
                         : 'border-gray-300 hover:border-green-500 hover:bg-green-50'
                     }`}
                   >
