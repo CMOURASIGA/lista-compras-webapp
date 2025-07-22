@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
-import { formatCurrency } from '../utils/formatters';
+import { useTestUserData } from '../contexts/TestUserDataContext';
 
 const ListaCompras = () => {
-  const { userData, toggleItemStatus, removeItem, editItem, getStatistics } = useUserData();
+  // Tentar usar contexto de teste primeiro, depois o normal
+  let contextData;
+  try {
+    contextData = useTestUserData();
+  } catch {
+    contextData = useUserData();
+  }
+
+  const { userData, getStatistics, toggleItemStatus, removeItem, editItem } = contextData;
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const stats = getStatistics();

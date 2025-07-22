@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
-import { formatCurrency } from '../utils/formatters';
+import { useTestUserData } from '../contexts/TestUserDataContext';
 
 const Carrinho = () => {
-  const { userData, finalizePurchase, getStatistics } = useUserData();
+  // Tentar usar contexto de teste primeiro, depois o normal
+  let contextData;
+  try {
+    contextData = useTestUserData();
+  } catch {
+    contextData = useUserData();
+  }
+
+  const { userData, getStatistics, finalizePurchase } = contextData;
   const [isFinalizingPurchase, setIsFinalizingPurchase] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 

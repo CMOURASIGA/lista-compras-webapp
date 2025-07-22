@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import GoogleLoginButton from '../components/GoogleLoginButton';
+import TestGoogleLoginButton from '../components/TestGoogleLoginButton';
 import Navigation from '../components/Navigation';
 import ListaCompras from './ListaCompras';
 import AdicionarItem from './AdicionarItem';
 import Carrinho from './Carrinho';
 import Historico from './Historico';
 import LoadPreviousItemsDialog from '../components/LoadPreviousItemsDialog';
+import CreatePreListDialog from '../components/CreatePreListDialog';
 import { useUserData } from '../contexts/UserDataContext';
 
 const Home = () => {
@@ -19,7 +21,11 @@ const Home = () => {
     showLoadPreviousDialog,
     previousItems,
     handleLoadPreviousItems,
-    handleSkipPreviousItems
+    handleSkipPreviousItems,
+    showCreatePreListDialog,
+    suggestedPreListItems,
+    handleCreatePreList,
+    handleSkipPreList
   } = useUserData();
 
   useEffect(() => {
@@ -84,6 +90,12 @@ const Home = () => {
                 onLoginSuccess={handleLoginSuccess} 
                 onLoginError={handleLoginError} 
               />
+              <div className="mt-3">
+                <TestGoogleLoginButton 
+                  onLoginSuccess={handleLoginSuccess} 
+                  onLoginError={handleLoginError} 
+                />
+              </div>
             </div>
             <div className="text-sm text-gray-500">
               <p>Faça login com sua conta Google para:</p>
@@ -143,6 +155,14 @@ const Home = () => {
         onConfirm={handleLoadPreviousItems}
         onCancel={handleSkipPreviousItems}
         itemCount={previousItems.length}
+      />
+
+      {/* Dialog para criar pré-lista baseada no histórico */}
+      <CreatePreListDialog
+        isOpen={showCreatePreListDialog}
+        onConfirm={handleCreatePreList}
+        onCancel={handleSkipPreList}
+        suggestedItems={suggestedPreListItems}
       />
     </div>
   );

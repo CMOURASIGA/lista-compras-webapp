@@ -1,8 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
+import { useTestUserData } from '../contexts/TestUserDataContext';
 
 const Historico = () => {
-  const { userData } = useUserData();
+  // Tentar usar contexto de teste primeiro, depois o normal
+  let contextData;
+  try {
+    contextData = useTestUserData();
+  } catch {
+    contextData = useUserData();
+  }
+
+  const { userData } = contextData;
   const [estatisticas, setEstatisticas] = useState({});
   const [loading, setLoading] = useState(true);
   const [filtroMes, setFiltroMes] = useState('todos');
