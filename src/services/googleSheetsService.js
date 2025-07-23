@@ -6,7 +6,7 @@ let accessToken = null;
 /**
  * Atualiza o token de acesso a partir do contexto de autenticação
  */
-export function setAccessTokenFromContext() {
+export function setAccessToken() {
   try {
     const { token } = useAuth();
     accessToken = token;
