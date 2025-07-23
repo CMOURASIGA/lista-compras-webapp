@@ -10,7 +10,7 @@ import LoadHistoryItemsDialog from '../components/LoadHistoryItemsDialog'; // NO
 import { useUserData } from '../contexts/UserDataContext';
 
 const Home = () => {
-  const { userData } = useUserData();
+  const { userData } = useUserData(); // Declaração original de userData
   if (!userData?.usuario) {
     return (
       <div className='flex flex-col justify-center items-center h-screen'>
@@ -21,11 +21,11 @@ const Home = () => {
   }
 
   const [currentPage, setCurrentPage] = useState('lista');
-  const { 
-    user, 
-    userData, 
-    handleLogin, 
-    handleLogout, 
+  const {
+    user,
+    // userData, // Esta linha foi removida pois userData já é declarado acima
+    handleLogin,
+    handleLogout,
     initializeSheetAndLoadData,
     showLoadPreviousDialog,
     previousItems,
@@ -96,9 +96,9 @@ const Home = () => {
               </p>
             </div>
             <div className="mb-6">
-              <GoogleLoginButton 
-                onLoginSuccess={handleLoginSuccess} 
-                onLoginError={handleLoginError} 
+              <GoogleLoginButton
+                onLoginSuccess={handleLoginSuccess}
+                onLoginError={handleLoginError}
               />
             </div>
             <div className="text-sm text-gray-500">
@@ -174,4 +174,3 @@ const Home = () => {
 };
 
 export default Home;
-
