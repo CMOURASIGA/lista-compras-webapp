@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
+import CategoryChart from '../components/CategoryChart';
 
 const Historico = () => {
   const { userData } = useUserData();
@@ -9,7 +11,6 @@ const Historico = () => {
 
   useEffect(() => {
     if (userData.historico) {
-      // Converter dados do histórico para o formato esperado
       const historicoFormatado = userData.historico.map(item => ({
         data: item.data,
         valorTotal: item.total || (item.preco * item.quantidade),
@@ -48,14 +49,12 @@ const Historico = () => {
   }, [userData.historico]);
 
   const formatarData = (data) => {
-    // Se a data já está no formato brasileiro, retorna como está
     if (typeof data === 'string' && data.includes('/')) {
       return data;
     }
     return new Date(data).toLocaleDateString('pt-BR');
   };
 
-  // Converter dados do histórico para o formato esperado para exibição
   const historicoFormatado = userData.historico ? userData.historico.map(item => ({
     data: item.data,
     valorTotal: item.total || (item.preco * item.quantidade),
@@ -70,11 +69,20 @@ const Historico = () => {
   const historicoFiltrado = filtroMes === 'todos'
     ? historicoFormatado
     : historicoFormatado.filter(compra => {
-        const dataCompra = new Date(compra.data.split('/').reverse().join('-')); // Converte DD/MM/YYYY para YYYY-MM-DD
+        const dataCompra = new Date(compra.data.split('/').reverse().join('-'));
         const mesAtual = new Date();
         return dataCompra.getMonth() === mesAtual.getMonth() &&
                dataCompra.getFullYear() === mesAtual.getFullYear();
       });
+
+  const gastoCategoriaReal = {};
+  historicoFiltrado.forEach(compra => {
+    compra.itens.forEach(item => {
+      const categoria = item.categoria || 'Outros';
+      gastoCategoriaReal[categoria] = (gastoCategoriaReal[categoria] || 0) + (item.preco * item.quantidade);
+    });
+  });
+  const categoriasParaGrafico = Object.entries(gastoCategoriaReal).map(([nome, valor]) => ({ nome, valor }));
 
   if (loading || userData.isLoading) {
     return (
@@ -86,34 +94,17 @@ const Historico = () => {
 
   return (
     <div className="p-4">
-      {/* Estatísticas */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <h2 className="text-lg font-semibold mb-4 text-gray-800">📊 Estatísticas</h2>
         <div className="grid grid-cols-2 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">R$ {estatisticas.totalGasto?.toFixed(2)}</div>
-            <div className="text-sm text-gray-600">Total Gasto</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">{estatisticas.comprasRealizadas}</div>
-            <div className="text-sm text-gray-600">Compras Realizadas</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-purple-600">{estatisticas.itensComprados}</div>
-            <div className="text-sm text-gray-600">Itens Comprados</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-orange-600">R$ {estatisticas.gastoMedio?.toFixed(2)}</div>
-            <div className="text-sm text-gray-600">Gasto Médio</div>
-          </div>
+          <div className="text-center"><div className="text-2xl font-bold text-green-600">R$ {estatisticas.totalGasto?.toFixed(2)}</div><div className="text-sm text-gray-600">Total Gasto</div></div>
+          <div className="text-center"><div className="text-2xl font-bold text-blue-600">{estatisticas.comprasRealizadas}</div><div className="text-sm text-gray-600">Compras Realizadas</div></div>
+          <div className="text-center"><div className="text-2xl font-bold text-purple-600">{estatisticas.itensComprados}</div><div className="text-sm text-gray-600">Itens Comprados</div></div>
+          <div className="text-center"><div className="text-2xl font-bold text-orange-600">R$ {estatisticas.gastoMedio?.toFixed(2)}</div><div className="text-sm text-gray-600">Gasto Médio</div></div>
         </div>
-        <div className="mt-4 p-3 bg-gray-50 rounded-md">
-          <div className="text-sm text-gray-600">Categoria Favorita:</div>
-          <div className="font-medium text-gray-800">{estatisticas.categoriaFavorita}</div>
-        </div>
+        <div className="mt-4 p-3 bg-gray-50 rounded-md"><div className="text-sm text-gray-600">Categoria Favorita:</div><div className="font-medium text-gray-800">{estatisticas.categoriaFavorita}</div></div>
       </div>
 
-      {/* Filtros */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">📝 Histórico de Compras</h2>
@@ -128,88 +119,28 @@ const Historico = () => {
         </div>
       </div>
 
-      {/* Lista do Histórico */}
-      <div className="space-y-4">
-        {historicoFiltrado.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <div className="text-4xl mb-2">📊</div>
-            <p>Nenhuma compra encontrada</p>
-            <p className="text-sm">Finalize algumas compras para ver o histórico</p>
+      {historicoFiltrado.map((compra, index) => (
+        <div key={index} className="bg-white rounded-lg shadow-md p-4 mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <div className="text-sm text-gray-600">📅 {formatarData(compra.data)}</div>
+            <div className="text-lg font-bold text-green-600">R$ {compra.valorTotal.toFixed(2)}</div>
           </div>
-        ) : (
-          historicoFiltrado.map((compra, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-md p-4">
-              <div className="flex justify-between items-center mb-3">
-                <div className="text-sm text-gray-600">
-                  📅 {formatarData(compra.data)}
+          <div className="space-y-2">
+            {compra.itens.map((item, idx) => (
+              <div key={idx} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
+                <div>
+                  <span className="font-medium">{item.nome}</span>
+                  <span className="text-sm text-gray-600 ml-2">({item.quantidade}x • {item.categoria})</span>
                 </div>
-                <div className="text-lg font-bold text-green-600">
-                  R$ {compra.valorTotal.toFixed(2)}
-                </div>
+                <div className="text-sm font-medium">R$ {(item.preco * item.quantidade).toFixed(2)}</div>
               </div>
-              
-              <div className="space-y-2">
-                {compra.itens.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
-                    <div>
-                      <span className="font-medium">{item.nome}</span>
-                      <span className="text-sm text-gray-600 ml-2">
-                        ({item.quantidade}x • {item.categoria})
-                      </span>
-                    </div>
-                    <div className="text-sm font-medium">
-                      R$ {(item.preco * item.quantidade).toFixed(2)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-3 pt-2 border-t border-gray-200">
-                <div className="text-sm text-gray-600">
-                  {compra.itens.length} {compra.itens.length === 1 ? 'item' : 'itens'} comprados
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Gráfico Simples de Gastos por Categoria */}
-      {historicoFiltrado.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-4 mt-6">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800">📈 Gastos por Categoria</h3>
-          <div className="space-y-3">
-            {['Grãos', 'Laticínios', 'Frutas', 'Carnes', 'Padaria', 'Limpeza', 'Outros'].map((categoria) => {
-              const gastoCategoria = historicoFiltrado.reduce((total, compra) => {
-                return total + compra.itens
-                  .filter(item => item.categoria === categoria)
-                  .reduce((subtotal, item) => subtotal + (item.preco * item.quantidade), 0);
-              }, 0);
-              
-              const porcentagem = estatisticas.totalGasto > 0 ? (gastoCategoria / estatisticas.totalGasto) * 100 : 0;
-              
-              if (gastoCategoria > 0) {
-                return (
-                  <div key={categoria} className="flex items-center">
-                    <div className="w-20 text-sm text-gray-600">{categoria}</div>
-                    <div className="flex-1 mx-3">
-                      <div className="bg-gray-200 rounded-full h-4">
-                        <div
-                          className="bg-blue-500 h-4 rounded-full"
-                          style={{ width: `${porcentagem}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    <div className="w-16 text-sm font-medium text-right">
-                      R$ {gastoCategoria.toFixed(2)}
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })}
+            ))}
           </div>
         </div>
+      ))}
+
+      {categoriasParaGrafico.length > 0 && (
+        <CategoryChart categorias={categoriasParaGrafico} />
       )}
     </div>
   );
