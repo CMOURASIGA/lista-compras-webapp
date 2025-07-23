@@ -10,24 +10,6 @@ import LoadHistoryItemsDialog from '../components/LoadHistoryItemsDialog'; // NO
 import { useUserData } from '../contexts/UserDataContext';
 
 const Home = () => {
-  const { userData } = useUserData();
-  
-  const handleLoginSuccess = (tokenResponse) => {
-    handleLogin(tokenResponse);
-  };
-
-  const handleLoginError = (error) => {
-    console.error("Falha no login com Google:", error);
-  };
-if (!userData?.usuario) {
-    return (
-      <div className='flex flex-col justify-center items-center h-screen'>
-        <h1 className='text-lg mb-4 text-gray-700 dark:text-white'>Faça login para continuar</h1>
-        <GoogleLoginButton onSuccess={handleLoginSuccess} onError={handleLoginError} />
-      </div>
-    );
-  }
-
   const [currentPage, setCurrentPage] = useState('lista');
   const { 
     user, 
