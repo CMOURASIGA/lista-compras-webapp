@@ -1,435 +1,55 @@
-// Versão aprimorada do googleSheetsService.js com funcionalidade de carregar produtos do histórico
 
-// Variável global para armazenar o token de acesso
+import { useAuth } from '../contexts/AuthContext';
+
 let accessToken = null;
 
-// Constante para o prefixo do nome da planilha
-const SPREADSHEET_NAME_PREFIX = 'Lista de Compras -';
-
 /**
- * Define o token de acesso para ser usado nas chamadas de API.
- * @param {string} token - O token de acesso OAuth2.
+ * Atualiza o token de acesso a partir do contexto de autenticação
  */
-export const setAccessToken = (token) => {
-  accessToken = token;
-};
-
-/**
- * Cria um cabeçalho de autorização com o token de acesso.
- * @returns {Headers} - Objeto Headers com o token de autorização.
- */
-const getAuthHeaders = () => {
-  if (!accessToken) {
-    throw new Error('Token de acesso não definido. Faça o login novamente.');
+export function setAccessTokenFromContext() {
+  try {
+    const { token } = useAuth();
+    accessToken = token;
+  } catch (e) {
+    console.error("Erro ao obter token do contexto:", e);
   }
-  const headers = new Headers();
-  headers.append('Authorization', `Bearer ${accessToken}`);
-  headers.append('Content-Type', 'application/json');
-  return headers;
-};
+}
 
 /**
- * Busca o ID da planilha do usuário no localStorage.
- * @param {string} userEmail - O e-mail do usuário.
- * @returns {string|null} - O ID da planilha ou null se não encontrado.
+ * Lê valores de uma planilha
  */
-export const getUserSpreadsheetId = (userEmail) => {
-  return localStorage.getItem(`spreadsheetId_${userEmail}`);
-};
+export async function readSheet(spreadsheetId, range) {
+  if (!accessToken) throw new Error("Token de acesso não disponível");
 
-/**
- * Busca metadados da planilha, como o ID de cada aba.
- * @param {string} spreadsheetId - O ID da planilha.
- * @returns {Promise<Array>} - Uma lista de abas com suas propriedades.
- */
-const getSheetMetadata = async (spreadsheetId) => {
-  const headers = getAuthHeaders();
-  const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties(sheetId,title)`,
-    { headers }
-  );
-
-  if (!response.ok) {
-    throw new Error('Falha ao buscar metadados da planilha.');
-  }
-
-  const data = await response.json();
-  return data.sheets;
-};
-
-/**
- * Procura por uma planilha pelo nome no Google Drive do usuário.
- * @param {string} sheetName - O nome da planilha a ser procurada.
- * @returns {Promise<string|null>} - O ID da planilha se encontrada, senão null.
- */
-const findSpreadsheetByName = async (sheetName) => {
-  const headers = getAuthHeaders();
-  const query = `mimeType='application/vnd.google-apps.spreadsheet' and name='${sheetName}' and trashed=false`;
-  const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
-    { headers }
-  );
-
-  if (!response.ok) {
-    throw new Error('Falha ao buscar a planilha no Google Drive.');
-  }
-
-  const data = await response.json();
-  if (data.files && data.files.length > 0) {
-    return data.files[0].id;
-  }
-  return null;
-};
-
-/**
- * Cria uma nova planilha com abas "Itens" e "Historico".
- * @param {string} sheetName - O nome para a nova planilha.
- * @returns {Promise<string>} - O ID da planilha recém-criada.
- */
-const createUserSpreadsheet = async (sheetName) => {
-  const headers = getAuthHeaders();
-  const body = {
-    properties: { title: sheetName },
-    sheets: [
-      { properties: { title: 'Itens' } },
-      { properties: { title: 'Historico' } },
-    ],
-  };
-
-  const response = await fetch(
-    'https://sheets.googleapis.com/v4/spreadsheets?fields=spreadsheetId,sheets.properties',
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error('Falha ao criar a planilha.');
-  }
-
-  const spreadsheet = await response.json();
-  await setupSheetHeaders(spreadsheet.spreadsheetId, spreadsheet.sheets);
-  return spreadsheet.spreadsheetId;
-};
-
-/**
- * Garante que a planilha do usuário exista, procurando ou criando uma nova.
- * @param {string} userEmail - O e-mail do usuário.
- * @returns {Promise<string>} - O ID da planilha.
- */
-export const findOrCreateSpreadsheet = async (userEmail) => {
-  let spreadsheetId = getUserSpreadsheetId(userEmail);
-  if (spreadsheetId) {
-    return spreadsheetId;
-  }
-
-  const sheetName = `${SPREADSHEET_NAME_PREFIX}${userEmail}`;
-  spreadsheetId = await findSpreadsheetByName(sheetName);
-
-  if (spreadsheetId) {
-    localStorage.setItem(`spreadsheetId_${userEmail}`, spreadsheetId);
-    return spreadsheetId;
-  }
-
-  spreadsheetId = await createUserSpreadsheet(sheetName);
-  localStorage.setItem(`spreadsheetId_${userEmail}`, spreadsheetId);
-  return spreadsheetId;
-};
-
-/**
- * Configura os cabeçalhos das abas "Itens" e "Historico".
- * @param {string} spreadsheetId - O ID da planilha.
- * @param {Array} sheetProperties - As propriedades das abas.
- */
-const setupSheetHeaders = async (spreadsheetId, sheetProperties) => {
-  const headers = getAuthHeaders();
-  const headerValues = {
-    Itens: ["ID", "Nome", "Quantidade", "Categoria", "Preco", "Status", "DataCriacao", "DataCompra"],
-    Historico: ["Data", "Item", "Quantidade", "Preco", "Categoria", "Loja", "Total", "ID"],
-  };
-
-  const sheetIdMap = {};
-  sheetProperties.forEach(sheet => {
-    sheetIdMap[sheet.properties.title] = sheet.properties.sheetId;
-  });
-
-  const requests = Object.keys(headerValues)
-    .map(sheetTitle => ({
-      updateCells: {
-        range: { sheetId: sheetIdMap[sheetTitle], startRowIndex: 0, endRowIndex: 1 },
-        rows: [{
-          values: headerValues[sheetTitle].map(header => ({
-            userEnteredValue: { stringValue: header },
-            userEnteredFormat: { textFormat: { bold: true } },
-          })),
-        }],
-        fields: 'userEnteredValue,userEnteredFormat.textFormat.bold',
-      },
-    }))
-    .filter(req => req.updateCells.range.sheetId !== undefined);
-
-  if (requests.length > 0) {
-    await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ requests }),
-      }
-    );
-  }
-};
-
-/**
- * Lê dados de um intervalo em uma planilha.
- * @param {string} spreadsheetId - O ID da planilha.
- * @param {string} range - O intervalo a ser lido (ex: 'Itens!A:H').
- * @returns {Promise<Object>} - Os dados da planilha.
- */
-export const readSheet = async (spreadsheetId, range) => {
-  const headers = getAuthHeaders();
-  const response = await fetch(
+  const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
-    { headers }
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
   );
 
-  if (!response.ok) {
-    throw new Error(`Falha ao ler a planilha: ${range}`);
-  }
-
-  return response.json();
-};
+  return res.json();
+}
 
 /**
- * NOVA FUNCIONALIDADE: Busca produtos únicos do histórico que podem ser re-adicionados à lista
- * @param {string} spreadsheetId - O ID da planilha.
- * @returns {Promise<Array>} - Lista de produtos únicos do histórico.
+ * Escreve valores em uma planilha
  */
-export const getPurchasedItemsFromHistory = async (spreadsheetId) => {
-  try {
-    const historicoResult = await readSheet(spreadsheetId, "Historico!A2:H1000");
-    const historicoData = (historicoResult.values || []).map(row => ({
-      data: row[0] || '',
-      item: row[1] || '',
-      quantidade: parseInt(row[2]) || 1,
-      preco: parseFloat(row[3]) || 0,
-      categoria: row[4] || '',
-      loja: row[5] || 'Não informado',
-      total: parseFloat(row[6]) || 0,
-      id: row[7] || ''
-    }));
+export async function writeSheet(spreadsheetId, range, values) {
+  if (!accessToken) throw new Error("Token de acesso não disponível");
 
-    // Agrupar por nome do item para obter produtos únicos
-    const uniqueItems = {};
-    historicoData.forEach(item => {
-      const itemName = item.item.toLowerCase().trim();
-      if (!uniqueItems[itemName] || new Date(item.data.split('/').reverse().join('-')) > new Date(uniqueItems[itemName].data.split('/').reverse().join('-'))) {
-        uniqueItems[itemName] = {
-          id: `history_${new Date().getTime()}_${Math.random().toString(36).substr(2, 9)}`,
-          nome: item.item,
-          quantidade: item.quantidade,
-          categoria: item.categoria,
-          preco: item.preco,
-          status: 'pendente', // Resetar status para pendente
-          dataCriacao: new Date().toLocaleDateString('pt-BR'),
-          dataCompra: '',
-          originalHistoryId: item.id,
-          lastPurchaseDate: item.data
-        };
-      }
-    });
-
-    return Object.values(uniqueItems);
-  } catch (error) {
-    console.error("Erro ao buscar produtos do histórico:", error);
-    return [];
-  }
-};
-
-/**
- * NOVA FUNCIONALIDADE: Adiciona produtos do histórico de volta à lista de itens
- * @param {string} spreadsheetId - O ID da planilha.
- * @param {Array} selectedItems - Lista de produtos selecionados do histórico.
- * @returns {Promise<boolean>} - Sucesso da operação.
- */
-export const addHistoryItemsToList = async (spreadsheetId, selectedItems) => {
-  try {
-    for (const item of selectedItems) {
-      const itemToAdd = {
-        id: item.id,
-        nome: item.nome,
-        quantidade: item.quantidade,
-        categoria: item.categoria,
-        preco: item.preco,
-        status: 'pendente',
-        dataCriacao: new Date().toLocaleDateString('pt-BR'),
-        dataCompra: ''
-      };
-      
-      await addItemToSheet(spreadsheetId, itemToAdd);
-    }
-    return true;
-  } catch (error) {
-    console.error("Erro ao adicionar produtos do histórico à lista:", error);
-    return false;
-  }
-};
-
-// Manter todas as outras funções existentes...
-export const addItemToSheet = async (spreadsheetId, item) => {
-  const headers = getAuthHeaders();
-  const range = 'Itens!A:H';
-  const values = [[
-    item.id, item.nome, item.quantidade, item.categoria,
-    item.preco, item.status, item.dataCriacao, item.dataCompra
-  ]];
-
-  await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`,
     {
-      method: 'POST',
-      headers,
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ values }),
     }
   );
-};
 
-export const updateItemStatusInSheet = async (spreadsheetId, rowIndex, status, dataCompra) => {
-  const headers = getAuthHeaders();
-  const sheetMetadata = await getSheetMetadata(spreadsheetId);
-  const itensSheet = sheetMetadata.find(s => s.properties.title === 'Itens');
-  if (!itensSheet) throw new Error("Aba 'Itens' não encontrada.");
-
-  const requests = [
-    {
-      updateCells: {
-        range: { sheetId: itensSheet.properties.sheetId, startRowIndex: rowIndex - 1, endRowIndex: rowIndex, startColumnIndex: 5, endColumnIndex: 6 },
-        rows: [{ values: [{ userEnteredValue: { stringValue: status } }] }],
-        fields: 'userEnteredValue',
-      },
-    },
-    {
-      updateCells: {
-        range: { sheetId: itensSheet.properties.sheetId, startRowIndex: rowIndex - 1, endRowIndex: rowIndex, startColumnIndex: 7, endColumnIndex: 8 },
-        rows: [{ values: [{ userEnteredValue: { stringValue: dataCompra } }] }],
-        fields: 'userEnteredValue',
-      },
-    },
-  ];
-
-  await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ requests }),
-    }
-  );
-};
-
-export const moveItemsToHistory = async (spreadsheetId, itemsToMove) => {
-  const headers = getAuthHeaders();
-  const sheetMetadata = await getSheetMetadata(spreadsheetId);
-  const itensSheet = sheetMetadata.find(s => s.properties.title === 'Itens');
-  if (!itensSheet) throw new Error("Aba 'Itens' não encontrada.");
-
-  // 1. Adicionar itens ao Histórico
-  const historyValues = itemsToMove.map(item => [
-    new Date().toLocaleDateString('pt-BR'),
-    item.nome, item.quantidade, item.preco, item.categoria, 'N/A',
-    (item.preco || 0) * (item.quantidade || 1), item.id
-  ]);
-
-  await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Historico!A:H:append?valueInputOption=USER_ENTERED`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ values: historyValues }),
-    }
-  );
-
-  // 2. Deletar itens da aba "Itens"
-  const allItemsResult = await readSheet(spreadsheetId, "Itens!A2:A");
-  const allSheetItemIds = (allItemsResult.values || []).map(row => row[0]);
-
-  const deleteRequests = [];
-  for (let i = allSheetItemIds.length - 1; i >= 0; i--) {
-    if (itemsToMove.some(item => item.id === allSheetItemIds[i])) {
-      deleteRequests.push({
-        deleteDimension: {
-          range: {
-            sheetId: itensSheet.properties.sheetId,
-            dimension: 'ROWS',
-            startIndex: i + 1,
-            endIndex: i + 2,
-          },
-        },
-      });
-    }
-  }
-
-  if (deleteRequests.length > 0) {
-    await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ requests: deleteRequests }),
-      }
-    );
-  }
-};
-
-export const editItemInSheet = async (spreadsheetId, rowIndex, item) => {
-  const headers = getAuthHeaders();
-  const sheetMetadata = await getSheetMetadata(spreadsheetId);
-  const itensSheet = sheetMetadata.find(s => s.properties.title === 'Itens');
-  if (!itensSheet) throw new Error("Aba 'Itens' não encontrada.");
-
-  const values = [[
-    item.id, item.nome, item.quantidade, item.categoria,
-    item.preco, item.status, item.dataCriacao, item.dataCompra
-  ]];
-
-  const requests = [{
-    updateCells: {
-      range: { 
-        sheetId: itensSheet.properties.sheetId, 
-        startRowIndex: rowIndex - 1, 
-        endRowIndex: rowIndex, 
-        startColumnIndex: 0, 
-        endColumnIndex: 8 
-      },
-      rows: [{
-        values: values[0].map(value => ({
-          userEnteredValue: { stringValue: value.toString() }
-        }))
-      }],
-      fields: 'userEnteredValue',
-    },
-  }];
-
-  await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ requests }),
-    }
-  );
-};
-
-export const clearSheetRange = async (spreadsheetId, range) => {
-  const headers = getAuthHeaders();
-  await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:clear`,
-    {
-      method: 'POST',
-      headers,
-    }
-  );
-};
-
+  return res.json();
+}

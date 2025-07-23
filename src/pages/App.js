@@ -1,83 +1,50 @@
-import React, { useState, useEffect } from "react";
-import { GoogleOAuthProvider } from "@react-oauth/google";
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Home from "./home";
+
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import ListaCompras from './ListaCompras';
+import AdicionarItem from './AdicionarItem';
 import Carrinho from './Carrinho';
 import Historico from './Historico';
-import AdicionarItem from './AdicionarItem'; // Adicionado
-import BottomNavigation from '../components/BottomNavigation';
-import { UserDataProvider, useUserData } from "../contexts/UserDataContext";
-import { Sun, Moon } from 'lucide-react';
 
-const AppContent = () => {
-  const { user, userData } = useUserData();
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  useEffect(() => {
-    const body = document.body;
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      body.classList.add('bg-bg-dark');
-      body.classList.remove('bg-bg-light');
-    } else {
-      document.documentElement.classList.remove('dark');
-      body.classList.add('bg-bg-light');
-      body.classList.remove('bg-bg-dark');
-    }
-  }, [isDarkMode]);
-
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
-  };
-
-  if (userData.isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-text-main dark:text-text-muted">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
+const Header = () => {
+  const { user, logout } = useAuth();
 
   return (
-    <Router>
-      <div className={`App pb-20`}>
-        {user ? (
-          <>
-            <button
-              onClick={toggleDarkMode}
-              className="fixed top-4 right-4 bg-white dark:bg-gray-700 p-2 rounded-full shadow-md z-50"
-            >
-              {isDarkMode ? <Sun className="text-accent" /> : <Moon className="text-text-main" />}
-            </button>
-            <Routes>
-              <Route path="/lista" element={<ListaCompras />} />
-              <Route path="/adicionar" element={<AdicionarItem />} />
-              <Route path="/carrinho" element={<Carrinho />} />
-              <Route path="/historico" element={<Historico />} />
-              <Route path="*" element={<Navigate to="/lista" />} />
-            </Routes>
-            <BottomNavigation />
-          </>
-        ) : (
-          <Home />
-        )}
-      </div>
-    </Router>
+    <header className="p-4 bg-blue-500 text-white flex justify-between">
+      <h1 className="text-xl">Lista de Compras</h1>
+      {user ? (
+        <div>
+          <span className="mr-4">Olá, {user.name}</span>
+          <button onClick={logout} className="bg-red-500 px-2 py-1 rounded">Sair</button>
+        </div>
+      ) : (
+        <div id="g_id_onload"
+             data-client_id={import.meta.env.VITE_GOOGLE_CLIENT_ID}
+             data-auto_prompt="false"
+             data-callback="handleCredentialResponse">
+        </div>
+      )}
+    </header>
   );
 };
 
-function App() {
+const App = () => {
   return (
-    <UserDataProvider>
-      <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
-        <AppContent />
-      </GoogleOAuthProvider>
-    </UserDataProvider>
+    <AuthProvider>
+      <Router>
+        <Header />
+        <main className="p-4">
+          <Routes>
+            <Route path="/" element={<ListaCompras />} />
+            <Route path="/adicionar" element={<AdicionarItem />} />
+            <Route path="/carrinho" element={<Carrinho />} />
+            <Route path="/historico" element={<Historico />} />
+          </Routes>
+        </main>
+      </Router>
+    </AuthProvider>
   );
-}
+};
 
 export default App;

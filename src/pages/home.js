@@ -4,7 +4,7 @@ import LoadPreviousItemsDialog from '../components/LoadPreviousItemsDialog';
 import LoadHistoryItemsDialog from '../components/LoadHistoryItemsDialog'; // NOVO COMPONENTE
 import { useUserData } from '../contexts/UserDataContext';
 
-const Home = () => {
+const Home = ({ children }) => {
   const { 
     user, 
     handleLogin, 
@@ -100,7 +100,7 @@ const Home = () => {
 
       {/* O conteúdo da página será renderizado pelo App.js Router */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* O conteúdo da página será renderizado pelo router */}
+          {children}
       </main>
 
       {/* Dialog para carregar produtos anteriores */}
