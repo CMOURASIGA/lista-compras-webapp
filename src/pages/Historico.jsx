@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import CategoryChart from '../components/CategoryChart';
-, { useState, useEffect } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
 
 const Historico = () => {
