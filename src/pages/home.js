@@ -1,14 +1,22 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import GoogleLoginButton from '../components/GoogleLoginButton';
+import Navigation from '../components/Navigation';
+import ListaCompras from './ListaCompras';
+import AdicionarItem from './AdicionarItem';
+import Carrinho from './Carrinho';
+import Historico from './Historico';
 import LoadPreviousItemsDialog from '../components/LoadPreviousItemsDialog';
 import LoadHistoryItemsDialog from '../components/LoadHistoryItemsDialog'; // NOVO COMPONENTE
 import { useUserData } from '../contexts/UserDataContext';
 
-const Home = ({ children }) => {
+const Home = () => {
+  const [currentPage, setCurrentPage] = useState('lista');
   const { 
     user, 
+    userData, 
     handleLogin, 
     handleLogout, 
+    initializeSheetAndLoadData,
     showLoadPreviousDialog,
     previousItems,
     handleLoadPreviousItems,
@@ -20,6 +28,11 @@ const Home = ({ children }) => {
     handleSkipHistoryItems
   } = useUserData();
 
+  useEffect(() => {
+    // Removido para evitar criação dupla de planilhas
+    // A inicialização já é feita no handleLogin do UserDataContext
+  }, []);
+
   const handleLoginSuccess = (tokenResponse) => {
     handleLogin(tokenResponse);
   };
@@ -30,18 +43,45 @@ const Home = ({ children }) => {
 
   const onLogout = () => {
     handleLogout();
+    setCurrentPage('lista');
   };
+
+  const renderCurrentPage = () => {
+    switch (currentPage) {
+      case 'lista':
+        return <ListaCompras />;
+      case 'adicionar':
+        return <AdicionarItem />;
+      case 'carrinho':
+        return <Carrinho />;
+      case 'historico':
+        return <Historico />;
+      default:
+        return <ListaCompras />;
+    }
+  };
+
+  if (userData.isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="max-w-md w-full mx-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">
                 🛒 Lista de Compras
               </h1>
-              <p className="text-gray-600 dark:text-gray-300">
+              <p className="text-gray-600">
                 Organize suas compras de forma inteligente
               </p>
             </div>
@@ -51,7 +91,7 @@ const Home = ({ children }) => {
                 onLoginError={handleLoginError} 
               />
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-500">
               <p>Faça login com sua conta Google para:</p>
               <ul className="mt-2 space-y-1">
                 <li>• Salvar suas listas na nuvem</li>
@@ -67,12 +107,12 @@ const Home = ({ children }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700">
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-800 dark:text-white">
+              <h1 className="text-xl font-semibold text-gray-800">
                 Lista de Compras
               </h1>
             </div>
@@ -84,12 +124,12 @@ const Home = ({ children }) => {
                   className="h-8 w-8 rounded-full"
                 />
               )}
-              <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:block">
+              <span className="text-sm text-gray-600 hidden sm:block">
                 Olá, {user.name?.split(' ')[0]}
               </span>
               <button
                 onClick={onLogout}
-                className="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                className="text-sm text-red-600 hover:text-red-800 font-medium"
               >
                 Sair
               </button>
@@ -98,9 +138,10 @@ const Home = ({ children }) => {
         </div>
       </header>
 
-      {/* O conteúdo da página será renderizado pelo App.js Router */}
+      <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {children}
+        {renderCurrentPage()}
       </main>
 
       {/* Dialog para carregar produtos anteriores */}
