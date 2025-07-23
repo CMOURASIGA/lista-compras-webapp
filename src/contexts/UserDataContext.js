@@ -17,6 +17,7 @@ export const UserDataProvider = ({ children }) => {
     items: [],
     historico: [],
     isLoading: true,
+    error: null, // Adicionado estado de erro
     spreadsheetId: null
   });
   const [showLoadPreviousDialog, setShowLoadPreviousDialog] = useState(false);
@@ -54,14 +55,21 @@ export const UserDataProvider = ({ children }) => {
     }
   }, [user, userData.spreadsheetId, userData.isLoading]);
 
+  const forceReload = () => {
+    if (user) {
+      setUserData(prev => ({ ...prev, isLoading: true, error: null }));
+      initializeSheetAndLoadData(user.email);
+    }
+  };
+
   const handleLogin = async (tokenResponse) => {
     if (!tokenResponse.access_token) {
       console.error("Login falhou: sem token de acesso.");
-      setUserData(prev => ({ ...prev, isLoading: false }));
+      setUserData(prev => ({ ...prev, isLoading: false, error: "Login falhou." }));
       return;
     }
 
-    setUserData(prev => ({ ...prev, isLoading: true }));
+    setUserData(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
       // 1. Definir o token de acesso para uso nas APIs
@@ -86,6 +94,7 @@ export const UserDataProvider = ({ children }) => {
 
     } catch (error) {
       console.error("Erro no processo de login e inicialização:", error);
+      setUserData(prev => ({ ...prev, error: "Erro ao fazer login. Tente novamente." }));
       handleLogout(); // Desloga em caso de erro
     } finally {
       setUserData(prev => ({ ...prev, isLoading: false }));
@@ -93,6 +102,7 @@ export const UserDataProvider = ({ children }) => {
   };
 
   const initializeSheetAndLoadData = async (userEmail) => {
+    setUserData(prev => ({ ...prev, isLoading: true, error: null }));
     try {
       // Simplificado para usar a nova função atômica
       const sheetId = await googleSheetsService.findOrCreateSpreadsheet(userEmail);
@@ -106,10 +116,12 @@ export const UserDataProvider = ({ children }) => {
 
     } catch (error) {
       console.error("Erro ao inicializar a planilha:", error);
-      setUserData(prev => ({ ...prev, hasGoogleSheets: false }));
+      setUserData(prev => ({ ...prev, hasGoogleSheets: false, error: "Falha ao conectar com Google Sheets. Carregando dados locais." }));
       if (userEmail) {
         loadDataFromLocalStorage(userEmail);
       }
+    } finally {
+        setUserData(prev => ({ ...prev, isLoading: false }));
     }
   };
 
@@ -131,7 +143,7 @@ export const UserDataProvider = ({ children }) => {
         total: parseFloat(row[6]) || 0, id: row[7] || ''
       }));
 
-      setUserData(prev => ({ ...prev, items, historico }));
+      setUserData(prev => ({ ...prev, items, historico, error: null }));
       
       if (user) {
         localStorage.setItem(`items_${user.email}`, JSON.stringify(items));
@@ -145,6 +157,7 @@ export const UserDataProvider = ({ children }) => {
 
     } catch (error) {
       console.error("Erro ao carregar dados do Google Sheets:", error);
+      setUserData(prev => ({ ...prev, error: "Não foi possível carregar os dados da planilha." }));
       if (user) loadDataFromLocalStorage(user.email);
     }
   };
@@ -200,6 +213,7 @@ export const UserDataProvider = ({ children }) => {
       items: [],
       historico: [],
       isLoading: false,
+      error: null,
       spreadsheetId: null
     });
   };
@@ -467,6 +481,7 @@ export const UserDataProvider = ({ children }) => {
     userData,
     handleLogin,
     handleLogout,
+    forceReload, // Expor a função de recarregamento
     initializeSheetAndLoadData,
     getStatistics,
     toggleItemStatus,

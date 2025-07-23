@@ -1,13 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { ShoppingCart, List, History } from 'lucide-react';
+import { ShoppingCart, List, History, Plus } from 'lucide-react';
 
 const BottomNavigation = () => {
-  const activeLinkClass = 'text-blue-600 dark:text-blue-400';
-  const inactiveLinkClass = 'text-gray-500 dark:text-gray-400';
+  const activeLinkClass = 'text-primary dark:text-accent';
+  const inactiveLinkClass = 'text-text-muted dark:text-text-muted-dark';
 
   return (
-    <nav className="fixed bottom-0 w-full bg-white dark:bg-gray-800 shadow-inner flex justify-around p-2">
+    <nav className="fixed bottom-0 w-full bg-white dark:bg-bg-dark shadow-inner flex justify-around items-center p-2 border-t border-gray-200 dark:border-gray-700">
       <NavLink
         to="/lista"
         className={({ isActive }) =>
@@ -25,6 +25,12 @@ const BottomNavigation = () => {
       >
         <ShoppingCart />
         <span className="text-xs">Carrinho</span>
+      </NavLink>
+      <NavLink
+        to="/adicionar"
+        className="flex flex-col items-center text-white bg-primary hover:bg-primary-dark rounded-full p-3 shadow-lg -mt-8"
+      >
+        <Plus />
       </NavLink>
       <NavLink
         to="/historico"
