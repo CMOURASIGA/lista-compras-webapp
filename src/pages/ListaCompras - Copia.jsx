@@ -1,25 +1,14 @@
 import React, { useState } from 'react';
 import { useUserData } from '../contexts/UserDataContext';
 import { formatCurrency } from '../utils/formatters';
-import { Search, Edit2, Trash2, Check, Filter, History, RefreshCw, Package } from 'lucide-react';
+import { Search, Edit2, Trash2, Check, Filter } from 'lucide-react';
 
 const ListaCompras = () => {
-  const { 
-    userData, 
-    toggleItemStatus, 
-    removeItem, 
-    editItem, 
-    getStatistics,
-    // Essas funções já existem no seu contexto baseado no home.js
-    handleLoadHistoryItems,
-    historyItems
-  } = useUserData();
-  
+  const { userData, toggleItemStatus, removeItem, editItem, getStatistics } = useUserData();
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('todos');
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const stats = getStatistics();
 
   const categorias = [
@@ -79,32 +68,11 @@ const ListaCompras = () => {
     setEditForm({});
   };
 
-  // Nova função para abrir o modal do histórico
-  const handleOpenHistoryModal = () => {
-    setShowHistoryModal(true);
-  };
-
-  // Nova função para confirmar e carregar itens do histórico
-  const handleConfirmLoadHistory = () => {
-    handleLoadHistoryItems(); // Função já existe no contexto
-    setShowHistoryModal(false);
-  };
-
   const filteredItems = userData.items.filter(item => {
     const matchesSearch = item.nome.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'todos' || item.categoria === selectedCategory;
     return matchesSearch && matchesCategory;
   });
-
-  // Processar itens únicos do histórico para mostrar no modal
-  const uniqueHistoryItems = userData.historico ? 
-    userData.historico.reduce((unique, item) => {
-      const exists = unique.find(u => u.item.toLowerCase() === item.item.toLowerCase());
-      if (!exists) {
-        unique.push(item);
-      }
-      return unique;
-    }, []) : [];
 
   if (userData.isLoading) {
     return (
@@ -162,30 +130,16 @@ const ListaCompras = () => {
 
       {/* Search and Filter */}
       <div className="px-4 mb-6 space-y-4">
-        {/* Search Bar com Botão do Histórico */}
-        <div className="flex space-x-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Buscar itens..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white rounded-2xl border-0 shadow-sm focus:ring-2 focus:ring-green-500 transition-all"
-            />
-          </div>
-          
-          {/* NOVO BOTÃO: Carregar do Histórico */}
-          {userData.historico && userData.historico.length > 0 && (
-            <button
-              onClick={handleOpenHistoryModal}
-              className="px-4 py-3 bg-purple-500 text-white rounded-2xl shadow-sm hover:bg-purple-600 flex items-center space-x-2 transition-all hover:shadow-md"
-              title="Carregar itens do histórico"
-            >
-              <History className="w-5 h-5" />
-              <span className="hidden sm:block">Histórico</span>
-            </button>
-          )}
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Buscar itens..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-white rounded-2xl border-0 shadow-sm focus:ring-2 focus:ring-green-500 transition-all"
+          />
         </div>
 
         {/* Category Filter */}
@@ -232,22 +186,6 @@ const ListaCompras = () => {
                 : 'Adicione alguns itens para começar suas compras'
               }
             </p>
-            
-            {/* Sugestão de usar o histórico quando a lista está vazia */}
-            {!searchTerm && selectedCategory === 'todos' && userData.historico && userData.historico.length > 0 && (
-              <div className="mt-6">
-                <button
-                  onClick={handleOpenHistoryModal}
-                  className="inline-flex items-center space-x-2 px-6 py-3 bg-purple-500 text-white rounded-2xl hover:bg-purple-600 transition-all shadow-lg hover:shadow-xl"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                  <span>Carregar itens do histórico</span>
-                </button>
-                <p className="text-sm text-gray-500 mt-2">
-                  Reaproveite produtos que você comprou anteriormente
-                </p>
-              </div>
-            )}
           </div>
         ) : (
           filteredItems.map((item) => (
@@ -392,77 +330,6 @@ const ListaCompras = () => {
           ))
         )}
       </div>
-
-      {/* NOVO MODAL: Modal para selecionar itens do histórico */}
-      {showHistoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-800 flex items-center space-x-2">
-                <History className="w-6 h-6 text-purple-600" />
-                <span>Carregar do Histórico</span>
-              </h3>
-              <p className="text-gray-600 text-sm mt-2">
-                Selecione itens que você comprou anteriormente para adicionar à sua lista atual.
-              </p>
-            </div>
-            
-            <div className="p-6 overflow-y-auto max-h-96">
-              {uniqueHistoryItems.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Nenhum item encontrado no histórico</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-600 mb-4">
-                    {uniqueHistoryItems.length} item(ns) único(s) encontrado(s) no seu histórico:
-                  </p>
-                  {uniqueHistoryItems.slice(0, 8).map((item, index) => (
-                    <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl">
-                      <span className="text-xl">{getEmojiForCategory(item.categoria)}</span>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-800">{item.item}</div>
-                        <div className="text-sm text-gray-500">
-                          {item.categoria} • R$ {item.preco?.toFixed(2) || '0,00'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {uniqueHistoryItems.length > 8 && (
-                    <p className="text-xs text-gray-500 text-center">
-                      E mais {uniqueHistoryItems.length - 8} itens...
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            <div className="p-6 border-t border-gray-200 flex space-x-3">
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmLoadHistory}
-                disabled={uniqueHistoryItems.length === 0}
-                className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${
-                  uniqueHistoryItems.length === 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-purple-500 text-white hover:bg-purple-600'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Carregar Itens</span>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Resumo no final */}
       {userData.items.length > 0 && (
