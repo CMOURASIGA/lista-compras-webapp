@@ -1,46 +1,29 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { ShoppingCart, List, History, Plus } from 'lucide-react';
+
+import { ShoppingCartIcon, ClipboardListIcon, ArchiveIcon } from '@heroicons/react/outline';
+import { Link, useLocation } from 'react-router-dom';
 
 const BottomNavigation = () => {
-  const activeLinkClass = 'text-primary dark:text-accent';
-  const inactiveLinkClass = 'text-text-muted dark:text-text-muted-dark';
+  const location = useLocation();
+  const current = (path) => location.pathname === path;
 
   return (
-    <nav className="fixed bottom-0 w-full bg-white dark:bg-bg-dark shadow-inner flex justify-around items-center p-2 border-t border-gray-200 dark:border-gray-700">
-      <NavLink
-        to="/lista"
-        className={({ isActive }) =>
-          `flex flex-col items-center ${isActive ? activeLinkClass : inactiveLinkClass}`
-        }
-      >
-        <List />
-        <span className="text-xs">Lista</span>
-      </NavLink>
-      <NavLink
-        to="/carrinho"
-        className={({ isActive }) =>
-          `flex flex-col items-center ${isActive ? activeLinkClass : inactiveLinkClass}`
-        }
-      >
-        <ShoppingCart />
-        <span className="text-xs">Carrinho</span>
-      </NavLink>
-      <NavLink
-        to="/adicionar"
-        className="flex flex-col items-center text-white bg-primary hover:bg-primary-dark rounded-full p-3 shadow-lg -mt-8"
-      >
-        <Plus />
-      </NavLink>
-      <NavLink
-        to="/historico"
-        className={({ isActive }) =>
-          `flex flex-col items-center ${isActive ? activeLinkClass : inactiveLinkClass}`
-        }
-      >
-        <History />
-        <span className="text-xs">Histórico</span>
-      </NavLink>
+    <nav className="fixed bottom-0 w-full bg-white dark:bg-gray-900 shadow-inner flex justify-around p-2 z-50 border-t border-gray-200 dark:border-gray-700">
+      <Link to="/lista" className="flex flex-col items-center text-xs text-gray-700 dark:text-gray-200">
+        <ClipboardListIcon className={`h-6 w-6 ${current("/lista") ? "text-blue-500" : ""}`} />
+        Lista
+      </Link>
+      <Link to="/AdicionarItem" className="flex flex-col items-center text-xs text-gray-700 dark:text-gray-200">
+        <ArchiveIcon className={`h-6 w-6 ${current("/AdicionarItem") ? "text-blue-500" : ""}`} />
+        Adicionar
+      </Link>
+      <Link to="/carrinho" className="flex flex-col items-center text-xs text-gray-700 dark:text-gray-200">
+        <ShoppingCartIcon className={`h-6 w-6 ${current("/carrinho") ? "text-blue-500" : ""}`} />
+        Carrinho
+      </Link>
+      <Link to="/historico" className="flex flex-col items-center text-xs text-gray-700 dark:text-gray-200">
+        <ClipboardListIcon className={`h-6 w-6 ${current("/historico") ? "text-blue-500" : ""}`} />
+        Histórico
+      </Link>
     </nav>
   );
 };
