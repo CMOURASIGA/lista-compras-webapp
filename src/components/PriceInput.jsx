@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DollarSign } from 'lucide-react';
 
 const PriceInput = ({ 
   value, 
@@ -78,9 +79,9 @@ const PriceInput = ({
 
   return (
     <div className="relative">
-      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none text-sm">
-        R$
-      </span>
+      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+        <DollarSign className="w-4 h-4 text-gray-500" />
+      </div>
       <input
         type="text"
         value={displayValue}
@@ -88,8 +89,8 @@ const PriceInput = ({
         onBlur={handleBlur}
         onFocus={handleFocus}
         placeholder={placeholder}
-        className={`pl-10 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full ${
-          !isValid() ? 'border-red-500' : 'border-gray-300'
+        className={`pl-10 pr-4 py-3 border-0 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all w-full text-gray-800 placeholder-gray-400 ${
+          !isValid() ? 'ring-2 ring-red-500 bg-red-50' : 'bg-gray-50'
         } ${className}`}
         required={required}
         disabled={disabled}
@@ -97,8 +98,9 @@ const PriceInput = ({
         autoComplete="off"
       />
       {!isValid() && displayValue && (
-        <div className="absolute -bottom-5 left-0 text-xs text-red-500">
-          Valor inválido
+        <div className="absolute -bottom-6 left-0 text-xs text-red-500 flex items-center space-x-1">
+          <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+          <span>Valor inválido</span>
         </div>
       )}
     </div>
@@ -106,4 +108,3 @@ const PriceInput = ({
 };
 
 export default PriceInput;
-
