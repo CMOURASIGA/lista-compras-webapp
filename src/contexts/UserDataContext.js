@@ -450,6 +450,18 @@ export const UserDataProvider = ({ children }) => {
     setHistoryItems([]);
   };
 
+  const offerToLoadPreviousItems = () => {
+    if (user) {
+      const localItems = JSON.parse(localStorage.getItem(`items_${user.email}`) || '[]');
+      if (localItems.length > 0) {
+        setPreviousItems(localItems);
+        setShowLoadPreviousDialog(true);
+      } else {
+        alert("Nenhum item salvo localmente para carregar.");
+      }
+    }
+  };
+
   const value = {
     user,
     userData,
@@ -467,6 +479,7 @@ export const UserDataProvider = ({ children }) => {
     previousItems,
     handleLoadPreviousItems,
     handleSkipPreviousItems,
+    offerToLoadPreviousItems,
     // NOVA FUNCIONALIDADE: Funcionalidades para produtos do histórico
     showLoadHistoryDialog,
     historyItems,
